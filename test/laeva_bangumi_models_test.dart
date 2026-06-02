@@ -14,7 +14,6 @@ void main() {
     test('uses the search result id as the Bangumi subject id', () {
       final item = LaevaBangumiSearchItem.fromJson({
         'id': 456079,
-        'bangumiId': 999999,
         'title': '和班上第二可爱的女孩成为朋友',
         'coverUrl': 'https://img.laevatain.top/cover/456079.jpg',
       });
