@@ -93,6 +93,14 @@ abstract class _SearchPageController with Store {
     isTimeOut = false;
     try {
       SearchParser parser = SearchParser(input);
+      final tag = parser.parseTag();
+      if (tag != null && tag.trim().isNotEmpty) {
+        final result = await LaevaBangumiApi.search(tag.trim(), byTag: true);
+        bangumiList
+          ..clear()
+          ..addAll(result.map((item) => item.toBangumiItem()));
+        return;
+      }
       String keywords = parser.parseKeywords();
       if (keywords.trim().isEmpty) {
         keywords = input.trim();

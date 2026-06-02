@@ -81,5 +81,65 @@ void main() {
       expect(LaevaBangumiMetadata.isLaevaItem(bangumiItems.single), isTrue);
       expect(LaevaBangumiMetadata.apiIdFromItem(bangumiItems.single), 377130);
     });
+
+    test('maps detail contract to Bangumi item and roads', () {
+      final detail = LaevaBangumiDetail.fromJson({
+        'id': 547888,
+        'title': '中文标题',
+        'summary': '简介',
+        'coverUrl': 'https://img.laevatain.top/cover/547888.jpg',
+        'eps': 12,
+        'totalEpisodes': 12,
+        'airDate': '2026-04-01',
+        'platform': 'TV',
+        'ratingScore': 7.6,
+        'rank': 1234,
+        'votes': 420,
+        'votesCount': [0, 0, 1, 2, 3, 10, 20, 30, 5, 1],
+        'tags': [
+          {'name': '原创', 'count': 10, 'totalCount': 20},
+        ],
+        'channels': [
+          {
+            'name': '非凡资源',
+            'sourceAid': 123,
+            'episodes': [
+              {
+                'index': 1,
+                'name': '第01集',
+                'playUrl': '/anime/api/play?id=547888&ch=1&ep=1',
+              },
+            ],
+          },
+        ],
+      });
+
+      final bangumiItem = LaevaBangumiSearchItem.fromJson({
+        'id': 547888,
+        'title': '中文标题',
+        'coverUrl': '',
+      }).toBangumiItem();
+      detail.applyToBangumiItem(bangumiItem);
+
+      expect(detail.channels.single.episodes.single.playUrl,
+          '/anime/api/play?id=547888&ch=1&ep=1');
+      expect(detail.toRoads().single.data.single,
+          '/anime/api/play?id=547888&ch=1&ep=1');
+      expect(bangumiItem.votes, 420);
+      expect(bangumiItem.votesCount, [0, 0, 1, 2, 3, 10, 20, 30, 5, 1]);
+      expect(bangumiItem.tags.single.name, '原创');
+      expect(bangumiItem.tags.single.count, 10);
+      expect(bangumiItem.tags.single.totalCount, 20);
+    });
+
+    test('maps play response videoUrl without legacy casing', () {
+      final playData = LaevaBangumiPlayData.fromJson({
+        'videoUrl': 'https://example.invalid/1.m3u8',
+        'directPlay': false,
+      });
+
+      expect(playData.videoUrl, 'https://example.invalid/1.m3u8');
+      expect(playData.directPlay, isFalse);
+    });
   });
 }

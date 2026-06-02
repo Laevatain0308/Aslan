@@ -210,6 +210,8 @@ class LaevaBangumiDetail {
     required this.platform,
     required this.ratingScore,
     required this.rank,
+    required this.votes,
+    required this.votesCount,
     required this.tags,
     required this.channels,
   });
@@ -226,9 +228,13 @@ class LaevaBangumiDetail {
       platform: _nullableString(json['platform']),
       ratingScore: _parseDouble(json['ratingScore']),
       rank: _parseInt(json['rank']),
+      votes: _parseInt(json['votes']) ?? 0,
+      votesCount: (json['votesCount'] as List<dynamic>? ?? const [])
+          .map((value) => _parseInt(value) ?? 0)
+          .toList(),
       tags: (json['tags'] as List<dynamic>? ?? const [])
-          .map((tag) => tag.toString())
-          .where((tag) => tag.isNotEmpty)
+          .map(_parseBangumiTag)
+          .where((tag) => tag.name.isNotEmpty)
           .toList(),
       channels: (json['channels'] as List<dynamic>? ?? const [])
           .whereType<Map>()
@@ -250,7 +256,9 @@ class LaevaBangumiDetail {
   final String? platform;
   final double? ratingScore;
   final int? rank;
-  final List<String> tags;
+  final int votes;
+  final List<int> votesCount;
+  final List<BangumiTag> tags;
   final List<LaevaBangumiChannel> channels;
 
   bool get hasPlayableEpisodes =>
@@ -261,7 +269,7 @@ class LaevaBangumiDetail {
         .map(
           (channel) => Road(
             name: channel.name,
-            data: channel.episodes.map((episode) => episode.url).toList(),
+            data: channel.episodes.map((episode) => episode.playUrl).toList(),
             identifier:
                 channel.episodes.map((episode) => episode.name).toList(),
           ),
@@ -277,12 +285,10 @@ class LaevaBangumiDetail {
     item.airDate = airDate ?? '';
     item.rank = rank ?? 0;
     item.images = _imageMap(coverUrl ?? '');
-    item.tags = tags
-        .map((tag) => BangumiTag(name: tag, count: 0, totalCount: 0))
-        .toList();
+    item.tags = tags;
     item.ratingScore = ratingScore ?? 0.0;
-    item.votes = 0;
-    item.votesCount = [];
+    item.votes = votes;
+    item.votesCount = votesCount;
     item.info = LaevaBangumiMetadata.encodeId(id);
   }
 }
@@ -316,20 +322,20 @@ class LaevaBangumiChannel {
 class LaevaBangumiEpisode {
   LaevaBangumiEpisode({
     required this.name,
-    required this.url,
+    required this.playUrl,
     required this.index,
   });
 
   factory LaevaBangumiEpisode.fromJson(Map<String, dynamic> json) {
     return LaevaBangumiEpisode(
       name: _string(json['name'], fallback: '未命名剧集'),
-      url: _string(json['url']),
+      playUrl: _string(json['playUrl']),
       index: _parseInt(json['index']) ?? 0,
     );
   }
 
   final String name;
-  final String url;
+  final String playUrl;
   final int index;
 }
 
@@ -338,7 +344,7 @@ class LaevaBangumiPlayData {
 
   factory LaevaBangumiPlayData.fromJson(Map<String, dynamic> json) {
     return LaevaBangumiPlayData(
-      videoUrl: _string(json['videoURL']),
+      videoUrl: _string(json['videoUrl']),
       directPlay: json['directPlay'] == true,
     );
   }
@@ -378,4 +384,16 @@ double? _parseDouble(dynamic value) {
   if (value is double) return value;
   if (value is num) return value.toDouble();
   return double.tryParse(value?.toString() ?? '');
+}
+
+BangumiTag _parseBangumiTag(dynamic value) {
+  if (value is Map) {
+    final json = Map<String, dynamic>.from(value);
+    return BangumiTag(
+      name: _string(json['name']),
+      count: _parseInt(json['count']) ?? 0,
+      totalCount: _parseInt(json['totalCount']) ?? 0,
+    );
+  }
+  return BangumiTag(name: _string(value), count: 0, totalCount: 0);
 }

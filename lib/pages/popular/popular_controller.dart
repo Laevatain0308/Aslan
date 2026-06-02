@@ -74,7 +74,7 @@ abstract class _PopularController with Store {
     isTimeOut = false;
     var tag = currentTag;
     try {
-      final result = await LaevaBangumiApi.search(tag);
+      final result = await LaevaBangumiApi.search(tag, byTag: true);
       bangumiList
         ..clear()
         ..addAll(result.map((item) => item.toBangumiItem()));

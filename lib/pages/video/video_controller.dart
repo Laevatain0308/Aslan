@@ -188,9 +188,8 @@ abstract class _VideoPageController with Store {
     laevaBangumiDetail = null;
     _offlinePluginName = pluginName;
     var selectedRoad = road;
-    title = bangumiItem.nameCn.isNotEmpty
-        ? bangumiItem.nameCn
-        : bangumiItem.name;
+    title =
+        bangumiItem.nameCn.isNotEmpty ? bangumiItem.nameCn : bangumiItem.name;
     isOfflineMode = true;
     loading = false;
 
@@ -278,9 +277,8 @@ abstract class _VideoPageController with Store {
       ..clear()
       ..addAll(detail.toRoads());
 
-    final safeRoad = roadList.isEmpty
-        ? 0
-        : road.clamp(0, roadList.length - 1).toInt();
+    final safeRoad =
+        roadList.isEmpty ? 0 : road.clamp(0, roadList.length - 1).toInt();
     final safeEpisode = roadList.isEmpty
         ? 1
         : episode.clamp(1, roadList[safeRoad].data.length).toInt();
@@ -440,9 +438,8 @@ abstract class _VideoPageController with Store {
       referer: '',
       currentRoad: selection.road,
       coverUrl: bangumiItem.images['large'],
-      bangumiName: bangumiItem.nameCn.isNotEmpty
-          ? bangumiItem.nameCn
-          : bangumiItem.name,
+      bangumiName:
+          bangumiItem.nameCn.isNotEmpty ? bangumiItem.nameCn : bangumiItem.name,
     );
 
     final initialized = await playerController.init(params);
@@ -467,7 +464,7 @@ abstract class _VideoPageController with Store {
       return selection.episode;
     }
     final episode = episodes[index];
-    final uri = Uri.tryParse(episode.url);
+    final uri = Uri.tryParse(episode.playUrl);
     final queryEpisode = int.tryParse(uri?.queryParameters['ep'] ?? '');
     if (queryEpisode != null && queryEpisode > 0) {
       return queryEpisode;
@@ -495,13 +492,12 @@ abstract class _VideoPageController with Store {
     }
 
     final episode = channel.episodes[episodeIndex];
-    final uri = Uri.tryParse(episode.url);
+    final uri = Uri.tryParse(episode.playUrl);
     final params = uri?.queryParameters ?? const <String, String>{};
     return _LaevaPlayRequest(
       id: int.tryParse(params['id'] ?? '') ?? detail.id,
       channel: int.tryParse(params['ch'] ?? '') ?? selection.road + 1,
-      episode:
-          int.tryParse(params['ep'] ?? '') ??
+      episode: int.tryParse(params['ep'] ?? '') ??
           (episode.index > 0 ? episode.index : selection.episode),
     );
   }

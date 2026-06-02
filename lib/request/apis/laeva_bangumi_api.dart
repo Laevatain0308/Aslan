@@ -69,8 +69,14 @@ class LaevaBangumiApi {
     return calendar;
   }
 
-  static Future<List<LaevaBangumiSearchItem>> search(String keyword) async {
-    final data = await _get('/search', queryParameters: {'q': keyword});
+  static Future<List<LaevaBangumiSearchItem>> search(
+    String keyword, {
+    bool byTag = false,
+  }) async {
+    final data = await _get(
+      '/search',
+      queryParameters: byTag ? {'tag': keyword} : {'q': keyword},
+    );
     final list = data as List<dynamic>? ?? const [];
     return list
         .whereType<Map>()
