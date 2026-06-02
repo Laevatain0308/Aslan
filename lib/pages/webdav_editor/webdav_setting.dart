@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:kazumi/bean/dialog/dialog_helper.dart';
-import 'package:kazumi/services/sync/bangumi_sync_service.dart';
 import 'package:kazumi/services/logging/logger.dart';
 import 'package:kazumi/services/storage/storage.dart';
 import 'package:kazumi/services/sync/webdav.dart';
@@ -22,8 +21,6 @@ class _PlayerSettingsPageState extends State<WebDavSettingsPage> {
   late bool webDavEnableHistory;
   late bool webDavEnableCollect;
   late bool enableGitProxy;
-  late bool enableBangumiProxy;
-  late bool bangumiSyncEnable;
 
   @override
   void initState() {
@@ -35,10 +32,6 @@ class _PlayerSettingsPageState extends State<WebDavSettingsPage> {
         setting.get(SettingBoxKey.webDavEnableCollect, defaultValue: false);
     enableGitProxy =
         setting.get(SettingBoxKey.enableGitProxy, defaultValue: false);
-    enableBangumiProxy =
-        setting.get(SettingBoxKey.enableBangumiProxy, defaultValue: false);
-    bangumiSyncEnable =
-        setting.get(SettingBoxKey.bangumiSyncEnable, defaultValue: false);
   }
 
   void onBackPressed(BuildContext context) {
@@ -102,77 +95,6 @@ class _PlayerSettingsPageState extends State<WebDavSettingsPage> {
                   description: Text('使用镜像访问规则托管仓库',
                       style: TextStyle(fontFamily: fontFamily)),
                   initialValue: enableGitProxy,
-                ),
-              ],
-            ),
-            SettingsSection(
-              title: Text('Bangumi', style: TextStyle(fontFamily: fontFamily)),
-              tiles: [
-                SettingsTile.switchTile(
-                  onToggle: (value) async {
-                    enableBangumiProxy = value ?? !enableBangumiProxy;
-                    await setting.put(
-                        SettingBoxKey.enableBangumiProxy, enableBangumiProxy);
-                    if (mounted) {
-                      setState(() {});
-                    }
-                  },
-                  title: Text('Bangumi 镜像',
-                      style: TextStyle(fontFamily: fontFamily)),
-                  description: Text('使用本地 Bangumi 缓存后端加载热门与分类榜单',
-                      style: TextStyle(fontFamily: fontFamily)),
-                  initialValue: enableBangumiProxy,
-                ),
-                SettingsTile.switchTile(
-                  onToggle: (value) async {
-                    final tBangumiEnableSync = value ?? !bangumiSyncEnable;
-                    final bangumi = BangumiSyncService();
-                    if (tBangumiEnableSync == true) {
-                      final token = setting
-                          .get(SettingBoxKey.bangumiAccessToken,
-                              defaultValue: '')
-                          .toString()
-                          .trim();
-                      if (token.isEmpty) {
-                        KazumiDialog.showToast(
-                            message: '请先配置 Bangumi 的 Access Token');
-                        return;
-                      } else {
-                        if (!bangumi.initialized) {
-                          try {
-                            await bangumi.init();
-                          } catch (e) {
-                            KazumiDialog.showToast(
-                                message: "Bangumi 初始化失败，请稍后再试");
-                            return;
-                          }
-                        }
-                      }
-                    }
-                    bangumiSyncEnable = tBangumiEnableSync;
-                    await setting.put(
-                        SettingBoxKey.bangumiSyncEnable, bangumiSyncEnable);
-                    if (!mounted) {
-                      return;
-                    }
-                    setState(() {});
-                  },
-                  title: Text('Bangumi 同步',
-                      style: TextStyle(fontFamily: fontFamily)),
-                  description: Text('允许与Bangumi自动同步收藏/追番状态',
-                      style: TextStyle(fontFamily: fontFamily)),
-                  initialValue: bangumiSyncEnable,
-                ),
-                SettingsTile.navigation(
-                  onPressed: (_) async {
-                    await Modular.to.pushNamed('/settings/bangumi/');
-                    bangumiSyncEnable = setting.get(
-                        SettingBoxKey.bangumiSyncEnable,
-                        defaultValue: false);
-                    setState(() {});
-                  },
-                  title: Text('Bangumi 配置',
-                      style: TextStyle(fontFamily: fontFamily)),
                 ),
               ],
             ),

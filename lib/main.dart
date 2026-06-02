@@ -7,7 +7,6 @@ import 'package:kazumi/bean/settings/theme_provider.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:kazumi/services/storage/storage.dart';
 import 'package:hive_ce_flutter/hive_flutter.dart';
-import 'package:kazumi/services/network/proxy_manager.dart';
 import 'package:flutter/services.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:window_manager/window_manager.dart';
@@ -22,11 +21,13 @@ void main() async {
   MediaKit.ensureInitialized();
   if (Platform.isAndroid || Platform.isIOS) {
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-      systemNavigationBarColor: Colors.transparent,
-      systemNavigationBarDividerColor: Colors.transparent,
-      statusBarColor: Colors.transparent,
-    ));
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        systemNavigationBarColor: Colors.transparent,
+        systemNavigationBarDividerColor: Colors.transparent,
+        statusBarColor: Colors.transparent,
+      ),
+    );
   }
 
   if (Platform.isAndroid) {
@@ -49,22 +50,33 @@ void main() async {
         await windowManager.focus();
       });
     }
-    runApp(MaterialApp(
+    runApp(
+      MaterialApp(
         title: '初始化失败',
         localizationsDelegates: GlobalMaterialLocalizations.delegates,
         supportedLocales: const [
           Locale.fromSubtags(
-              languageCode: 'zh', scriptCode: 'Hans', countryCode: "CN")
+            languageCode: 'zh',
+            scriptCode: 'Hans',
+            countryCode: "CN",
+          ),
         ],
         locale: const Locale.fromSubtags(
-            languageCode: 'zh', scriptCode: 'Hans', countryCode: "CN"),
+          languageCode: 'zh',
+          scriptCode: 'Hans',
+          countryCode: "CN",
+        ),
         builder: (context, child) {
           return const StorageErrorPage();
-        }));
+        },
+      ),
+    );
     return;
   }
-  bool showWindowButton = await GStorage.setting
-      .get(SettingBoxKey.showWindowButton, defaultValue: false);
+  bool showWindowButton = await GStorage.setting.get(
+    SettingBoxKey.showWindowButton,
+    defaultValue: false,
+  );
   if (isDesktop()) {
     await windowManager.ensureInitialized();
     final lowResolution = await isLowResolution();
@@ -85,14 +97,10 @@ void main() async {
       await windowManager.focus();
     });
   }
-  ProxyManager.applyProxy();
   runApp(
     ChangeNotifierProvider(
       create: (_) => ThemeProvider(),
-      child: ModularApp(
-        module: AppModule(),
-        child: const AppWidget(),
-      ),
+      child: ModularApp(module: AppModule(), child: const AppWidget()),
     ),
   );
 }

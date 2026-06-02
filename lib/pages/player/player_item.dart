@@ -24,14 +24,8 @@ import 'package:kazumi/pages/history/history_controller.dart';
 import 'package:kazumi/pages/collect/collect_controller.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:kazumi/services/storage/storage.dart';
-import 'package:kazumi/request/apis/danmaku_api.dart';
-import 'package:kazumi/modules/danmaku/danmaku_search_response.dart';
-import 'package:kazumi/modules/danmaku/danmaku_episode_response.dart';
-import 'package:kazumi/modules/danmaku/danmaku_module.dart';
-import 'package:kazumi/pages/player/controller/player_danmaku_controller.dart';
 import 'package:kazumi/pages/player/player_item_surface.dart';
 import 'package:mobx/mobx.dart' as mobx;
-import 'package:kazumi/pages/my/my_controller.dart';
 import 'package:saver_gallery/saver_gallery.dart';
 import 'package:kazumi/services/player/audio_controller.dart';
 import 'package:kazumi/utils/device.dart';
@@ -48,8 +42,6 @@ class PlayerItem extends StatefulWidget {
     required this.changeEpisode,
     required this.onBackPressed,
     required this.keyboardFocus,
-    required this.sendDanmaku,
-    required this.showDanmakuDestinationPickerAndSend,
     required this.pauseForTimedShutdown,
     this.disableAnimations = false,
   });
@@ -59,12 +51,10 @@ class PlayerItem extends StatefulWidget {
   final VoidCallback showMenuImmediately;
   final VoidCallback hideMenuImmediately;
   final Future<void> Function(int episode, {int currentRoad, int offset})
-      changeEpisode;
+  changeEpisode;
   final void Function(BuildContext) onBackPressed;
-  final void Function(String) sendDanmaku;
   final FocusNode keyboardFocus;
   final bool disableAnimations;
-  final void Function(String) showDanmakuDestinationPickerAndSend;
   final VoidCallback pauseForTimedShutdown;
 
   @override
@@ -79,7 +69,6 @@ class _PlayerItemState extends State<PlayerItem>
       Modular.get<VideoPageController>();
   final HistoryController historyController = Modular.get<HistoryController>();
   final CollectController collectController = Modular.get<CollectController>();
-  final MyController myController = Modular.get<MyController>();
   final AudioController _audioController = AudioController();
   late Map<String, List<String>> keyboardShortcuts;
   late List<String> keyboardActionsNeedLongPress;
@@ -104,10 +93,6 @@ class _PlayerItemState extends State<PlayerItem>
   late bool _hideBottom;
   late bool _hideScroll;
   late bool _massiveMode;
-  late bool _danmakuColor;
-  late bool _danmakuBiliBiliSource;
-  late bool _danmakuGamerSource;
-  late bool _danmakuDanDanSource;
   late double _danmakuDuration;
   late double _danmakuLineHeight;
   late int _danmakuFontWeight;
@@ -198,7 +183,7 @@ class _PlayerItemState extends State<PlayerItem>
       return;
     }
     final bool playing = playerController.playback.playing;
-    final bool danmakuEnabled = playerController.danmaku.danmakuOn;
+    const bool danmakuEnabled = false;
     if (!force &&
         _lastPipPlaying == playing &&
         _lastPipDanmakuEnabled == danmakuEnabled) {
@@ -258,7 +243,7 @@ class _PlayerItemState extends State<PlayerItem>
       'screenshot': () async => handleScreenshot(),
       'skip': () async => skipOP(),
       'exitfullscreen': () => handleShortcutExitFullscreen(),
-      'toggledanmaku': () => handleDanmaku(),
+      'toggledanmaku': () {},
       'speed1': () async => setPlaybackSpeed(1.0),
       'speed2': () async => setPlaybackSpeed(2.0),
       'speed3': () async => setPlaybackSpeed(3.0),
@@ -366,8 +351,10 @@ class _PlayerItemState extends State<PlayerItem>
   }
 
   Future<void> handleShortcutForwardRepeat() async {
-    final double defaultShortcutForwardPlaySpeed = setting
-        .get(SettingBoxKey.defaultShortcutForwardPlaySpeed, defaultValue: 2.0);
+    final double defaultShortcutForwardPlaySpeed = setting.get(
+      SettingBoxKey.defaultShortcutForwardPlaySpeed,
+      defaultValue: 2.0,
+    );
     if (playerController.playback.playerSpeed <
         defaultShortcutForwardPlaySpeed) {
       playerController.panel.showPlaySpeed = true;
@@ -493,25 +480,16 @@ class _PlayerItemState extends State<PlayerItem>
 
   // 跳过指定秒数
   Future<void> skipOP() async {
-    await playerController.seek(playerController.playback.currentPosition +
-        Duration(seconds: playerController.playback.buttonSkipTime));
+    await playerController.seek(
+      playerController.playback.currentPosition +
+          Duration(seconds: playerController.playback.buttonSkipTime),
+    );
   }
 
   void handleDanmaku() {
     playerController.danmaku.canvasController.clear();
-    if (playerController.danmaku.danmakuOn) {
-      playerController.danmaku.danmakuOn = false;
-      setting.put(SettingBoxKey.danmakuEnabledByDefault, false);
-      unawaited(_updateAndroidPIPActions(force: true));
-      return;
-    }
-    if (playerController.danmaku.danDanmakus.isEmpty) {
-      showDanmakuSwitch();
-      unawaited(_updateAndroidPIPActions(force: true));
-      return;
-    }
-    playerController.danmaku.danmakuOn = true;
-    setting.put(SettingBoxKey.danmakuEnabledByDefault, true);
+    playerController.danmaku.danmakuOn = false;
+    setting.put(SettingBoxKey.danmakuEnabledByDefault, false);
     unawaited(_updateAndroidPIPActions(force: true));
   }
 
@@ -574,9 +552,7 @@ class _PlayerItemState extends State<PlayerItem>
           mediaId:
               '${videoPageController.bangumiItem.id}_${currentRoad}_$currentEpisode',
           title: bangumiTitle,
-          album: videoPageController.isOfflineMode
-              ? videoPageController.offlinePluginName
-              : videoPageController.currentPlugin.name,
+          album: videoPageController.sourceName,
           artist: episodeTitle,
           artUri: artworkUri,
           duration: playerController.playback.duration,
@@ -593,8 +569,10 @@ class _PlayerItemState extends State<PlayerItem>
         ),
       );
     } catch (e) {
-      KazumiLogger()
-          .w('AudioController: failed to sync playback state', error: e);
+      KazumiLogger().w(
+        'AudioController: failed to sync playback state',
+        error: e,
+      );
     }
   }
 
@@ -666,85 +644,103 @@ class _PlayerItemState extends State<PlayerItem>
 
     // mediacodec_embed 不支持超分辨率
     if (Platform.isAndroid && shaderIndex != 1) {
-      final String androidVideoRenderer =
-          setting.get(SettingBoxKey.androidVideoRenderer, defaultValue: 'auto');
+      final String androidVideoRenderer = setting.get(
+        SettingBoxKey.androidVideoRenderer,
+        defaultValue: 'auto',
+      );
 
       if (androidVideoRenderer == 'mediacodec_embed') {
-        await KazumiDialog.show(builder: (context) {
-          return AlertDialog(
-            title: const Text('兼容性提示'),
-            content: const Text('MediaCodec 渲染器不支持超分辨率功能。\n\n'
-                '如需使用超分辨率，请在播放设置中将视频渲染器切换为 gpu 或 gpu-next。'),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  KazumiDialog.dismiss();
-                },
-                child: const Text('确定'),
+        await KazumiDialog.show(
+          builder: (context) {
+            return AlertDialog(
+              title: const Text('兼容性提示'),
+              content: const Text(
+                'MediaCodec 渲染器不支持超分辨率功能。\n\n'
+                '如需使用超分辨率，请在播放设置中将视频渲染器切换为 gpu 或 gpu-next。',
               ),
-            ],
-          );
-        });
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    KazumiDialog.dismiss();
+                  },
+                  child: const Text('确定'),
+                ),
+              ],
+            );
+          },
+        );
         return;
       }
     }
 
     final bool isHighMode = shaderIndex == 3;
-    final bool alreadyShown =
-        setting.get(SettingBoxKey.superResolutionWarn, defaultValue: false);
+    final bool alreadyShown = setting.get(
+      SettingBoxKey.superResolutionWarn,
+      defaultValue: false,
+    );
 
     if (isHighMode && !alreadyShown) {
       bool confirmed = false;
 
-      await KazumiDialog.show(builder: (context) {
-        bool dontAskAgain = false;
+      await KazumiDialog.show(
+        builder: (context) {
+          bool dontAskAgain = false;
 
-        return StatefulBuilder(builder: (context, setState) {
-          return AlertDialog(
-            title: const Text('性能提示'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('启用超分辨率（质量档）可能会造成设备卡顿，是否继续？'),
-                const SizedBox(height: 12),
-                Row(
+          return StatefulBuilder(
+            builder: (context, setState) {
+              return AlertDialog(
+                title: const Text('性能提示'),
+                content: Column(
                   mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Checkbox(
-                      value: dontAskAgain,
-                      onChanged: (value) =>
-                          setState(() => dontAskAgain = value ?? false),
+                    const Text('启用超分辨率（质量档）可能会造成设备卡顿，是否继续？'),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Checkbox(
+                          value: dontAskAgain,
+                          onChanged: (value) =>
+                              setState(() => dontAskAgain = value ?? false),
+                        ),
+                        const Text('下次不再询问'),
+                      ],
                     ),
-                    const Text('下次不再询问'),
                   ],
                 ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () async {
-                  if (dontAskAgain) {
-                    await setting.put(SettingBoxKey.superResolutionWarn, true);
-                  }
-                  KazumiDialog.dismiss();
-                },
-                child: const Text('取消'),
-              ),
-              TextButton(
-                onPressed: () async {
-                  confirmed = true;
-                  if (dontAskAgain) {
-                    await setting.put(SettingBoxKey.superResolutionWarn, true);
-                  }
-                  KazumiDialog.dismiss();
-                },
-                child: const Text('确认'),
-              ),
-            ],
+                actions: [
+                  TextButton(
+                    onPressed: () async {
+                      if (dontAskAgain) {
+                        await setting.put(
+                          SettingBoxKey.superResolutionWarn,
+                          true,
+                        );
+                      }
+                      KazumiDialog.dismiss();
+                    },
+                    child: const Text('取消'),
+                  ),
+                  TextButton(
+                    onPressed: () async {
+                      confirmed = true;
+                      if (dontAskAgain) {
+                        await setting.put(
+                          SettingBoxKey.superResolutionWarn,
+                          true,
+                        );
+                      }
+                      KazumiDialog.dismiss();
+                    },
+                    child: const Text('确认'),
+                  ),
+                ],
+              );
+            },
           );
-        });
-      });
+        },
+      );
 
       if (confirmed) {
         playerController.setShader(shaderIndex);
@@ -856,12 +852,14 @@ class _PlayerItemState extends State<PlayerItem>
     try {
       switch (type) {
         case 'up':
-          await playerController
-              .setVolume(playerController.playback.volume + 10);
+          await playerController.setVolume(
+            playerController.playback.volume + 10,
+          );
           break;
         case 'down':
-          await playerController
-              .setVolume(playerController.playback.volume - 10);
+          await playerController.setVolume(
+            playerController.playback.volume - 10,
+          );
           break;
         case 'mute':
           if (playerController.playback.volume > 0) {
@@ -883,8 +881,9 @@ class _PlayerItemState extends State<PlayerItem>
 
   Future<void> setBrightness(double value) async {
     try {
-      await ScreenBrightnessPlatform.instance
-          .setApplicationScreenBrightness(value);
+      await ScreenBrightnessPlatform.instance.setApplicationScreenBrightness(
+        value,
+      );
     } catch (_) {}
   }
 
@@ -906,75 +905,7 @@ class _PlayerItemState extends State<PlayerItem>
     hideTimer = null;
   }
 
-  bool _isDanmakuSourceEnabled(DanmakuEntry danmaku) {
-    if (!_danmakuBiliBiliSource && danmaku.source.contains('BiliBili')) {
-      return false;
-    }
-    if (!_danmakuGamerSource && danmaku.source.contains('Gamer')) {
-      return false;
-    }
-    if (!_danmakuDanDanSource &&
-        !(danmaku.source.contains('BiliBili') ||
-            danmaku.source.contains('Gamer'))) {
-      return false;
-    }
-    return true;
-  }
-
-  DanmakuItemType _danmakuItemType(DanmakuEntry danmaku) {
-    if (danmaku.type == 4) {
-      return DanmakuItemType.bottom;
-    }
-    if (danmaku.type == 5) {
-      return DanmakuItemType.top;
-    }
-    return DanmakuItemType.scroll;
-  }
-
-  void _emitDanmakusForCurrentPosition() {
-    if (playerController.playback.currentPosition.inMicroseconds == 0 ||
-        playerController.playback.playerPlaying != true ||
-        playerController.danmaku.danmakuOn != true) {
-      return;
-    }
-
-    final danmakus = playerController.danmaku
-        .danmakusForPlaybackPosition(playerController.playback.currentPosition);
-    final danmakuCount = danmakus.length;
-    for (final entry in danmakus.asMap().entries) {
-      final idx = entry.key;
-      final danmaku = entry.value;
-      if (!_isDanmakuSourceEnabled(danmaku)) {
-        continue;
-      }
-
-      final color = _danmakuColor ? danmaku.color : Colors.white;
-      final delay = DanmakuTimeline.staggerDelayMilliseconds(
-        index: idx,
-        total: danmakuCount,
-      );
-      final scheduledDanmakuGeneration =
-          playerController.danmaku.scheduledDanmakuGeneration;
-      Future.delayed(Duration(milliseconds: delay), () {
-        if (!mounted ||
-            !playerController.playback.playerPlaying ||
-            playerController.playback.playerBuffering ||
-            !playerController.danmaku.danmakuOn ||
-            playerController.danmaku.scheduledDanmakuGeneration !=
-                scheduledDanmakuGeneration ||
-            myController.isDanmakuBlocked(danmaku.message)) {
-          return;
-        }
-        playerController.danmaku.canvasController.addDanmaku(
-          DanmakuContentItem(
-            danmaku.message,
-            color: color,
-            type: _danmakuItemType(danmaku),
-          ),
-        );
-      });
-    }
-  }
+  void _emitDanmakusForCurrentPosition() {}
 
   Timer getPlayerTimer() {
     return Timer.periodic(const Duration(seconds: 1), (timer) {
@@ -985,8 +916,9 @@ class _PlayerItemState extends State<PlayerItem>
       // 音量相关
       if (!playerController.panel.volumeSeeking) {
         if (isDesktop()) {
-          playerController.playback
-              .applyExternalVolume(playerController.playback.playerVolume);
+          playerController.playback.applyExternalVolume(
+            playerController.playback.playerVolume,
+          );
         }
       }
       // 亮度相关
@@ -1003,19 +935,19 @@ class _PlayerItemState extends State<PlayerItem>
       if (playerController.playback.playerPlaying &&
           !videoPageController.loading &&
           !videoPageController.isOfflineMode) {
-        final pluginName = videoPageController.isOfflineMode
-            ? videoPageController.offlinePluginName
-            : videoPageController.currentPlugin.name;
+        final pluginName = videoPageController.sourceName;
         final selection = videoPageController.playbackEpisode;
         historyController.updateHistory(
-            videoPageController.playingActualEpisodeNumber,
-            selection.road,
-            pluginName,
-            videoPageController.bangumiItem,
-            playerController.playback.playerPosition,
-            videoPageController.src,
-            videoPageController
-                .roadList[selection.road].identifier[selection.episode - 1]);
+          videoPageController.playingActualEpisodeNumber,
+          selection.road,
+          pluginName,
+          videoPageController.bangumiItem,
+          playerController.playback.playerPosition,
+          videoPageController.src,
+          videoPageController
+              .roadList[selection.road]
+              .identifier[selection.episode - 1],
+        );
       }
       // 自动播放下一集
       final playingSelection = videoPageController.playbackEpisode;
@@ -1025,146 +957,139 @@ class _PlayerItemState extends State<PlayerItem>
           !videoPageController.loading &&
           autoPlayNext) {
         KazumiDialog.showToast(
-            message:
-                '正在加载${videoPageController.roadList[playingSelection.road].identifier[playingSelection.episode]}');
+          message:
+              '正在加载${videoPageController.roadList[playingSelection.road].identifier[playingSelection.episode]}',
+        );
         try {
           playerTimer!.cancel();
         } catch (_) {}
-        widget.changeEpisode(playingSelection.episode + 1,
-            currentRoad: playingSelection.road);
+        widget.changeEpisode(
+          playingSelection.episode + 1,
+          currentRoad: playingSelection.road,
+        );
       }
       // 一起去看相关
       playerController.setSyncPlayCurrentPosition();
     });
   }
 
-  void showDanmakuSearchDialog(String keyword) async {
-    KazumiDialog.dismiss();
-    KazumiDialog.showLoading(msg: '弹幕检索中');
-    DanmakuSearchResponse danmakuSearchResponse;
-    DanmakuEpisodeResponse danmakuEpisodeResponse;
-    try {
-      danmakuSearchResponse =
-          await DanmakuApi.getDanmakuSearchResponse(keyword);
-    } catch (e) {
-      KazumiDialog.dismiss();
-      KazumiDialog.showToast(message: '弹幕检索错误: ${e.toString()}');
-      return;
-    }
-    KazumiDialog.dismiss();
-    if (danmakuSearchResponse.animes.isEmpty) {
-      KazumiDialog.showToast(message: '未找到匹配结果');
-      return;
-    }
-    await KazumiDialog.show(builder: (context) {
-      return Dialog(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 560),
-          child: ListView(
-            shrinkWrap: true,
-            children: danmakuSearchResponse.animes.map((danmakuInfo) {
-              return ListTile(
-                title: Text(danmakuInfo.animeTitle),
-                onTap: () async {
-                  KazumiDialog.dismiss();
-                  KazumiDialog.showLoading(msg: '弹幕检索中');
-                  try {
-                    danmakuEpisodeResponse =
-                        await DanmakuApi.getDanDanEpisodesByDanDanBangumiID(
-                            danmakuInfo.animeId);
-                  } catch (e) {
-                    KazumiDialog.dismiss();
-                    KazumiDialog.showToast(message: '弹幕检索错误: ${e.toString()}');
-                    return;
-                  }
-                  KazumiDialog.dismiss();
-                  if (danmakuEpisodeResponse.episodes.isEmpty) {
-                    KazumiDialog.showToast(message: '未找到匹配结果');
-                    return;
-                  }
-                  KazumiDialog.show(builder: (context) {
-                    return Dialog(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 560),
-                        child: ListView(
-                          shrinkWrap: true,
-                          children:
-                              danmakuEpisodeResponse.episodes.map((episode) {
-                            return ListTile(
-                              title: Text(episode.episodeTitle),
-                              onTap: () async {
-                                KazumiDialog.dismiss();
-                                try {
-                                  videoPageController
-                                      .cancelAutomaticDanmakuLoad();
-                                  final hasDanmakus = await playerController
-                                      .danmaku
-                                      .getDanDanmakuByEpisodeID(
-                                          episode.episodeId);
-                                  if (!mounted) {
-                                    return;
-                                  }
-                                  if (hasDanmakus) {
-                                    playerController.danmaku.danmakuOn = true;
-                                    KazumiDialog.showToast(message: '弹幕切换成功');
-                                  } else {
-                                    playerController.danmaku.danmakuOn = false;
-                                    KazumiDialog.showToast(message: '未找到弹幕内容');
-                                  }
-                                } catch (e) {
-                                  KazumiDialog.showToast(message: '弹幕切换失败');
-                                }
-                              },
-                            );
-                          }).toList(),
-                        ),
-                      ),
-                    );
-                  });
-                },
-              );
-            }).toList(),
-          ),
-        ),
-      );
-    });
-  }
-
-  // 弹幕查询
-  void showDanmakuSwitch() {
-    String searchKeyword = videoPageController.title;
-    KazumiDialog.show(
+  Widget get videoInfoBody {
+    return Observer(
       builder: (context) {
-        return AlertDialog(
-          title: const Text('弹幕检索'),
-          content: TextFormField(
-            initialValue: searchKeyword,
-            decoration: const InputDecoration(
-              hintText: '番剧名',
-            ),
-            onChanged: (value) => searchKeyword = value,
-            onFieldSubmitted: (keyword) {
-              showDanmakuSearchDialog(keyword);
-            },
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                KazumiDialog.dismiss();
-                widget.keyboardFocus.requestFocus();
+        return ListView(
+          children: [
+            ListTile(
+              title: const Text("Source"),
+              subtitle: Text(playerController.videoUrl),
+              onTap: () {
+                KazumiDialog.showToast(message: '已复制到剪贴板');
+                Clipboard.setData(
+                  ClipboardData(text: playerController.videoUrl),
+                );
               },
-              child: Text(
-                '取消',
-                style: TextStyle(color: Theme.of(context).colorScheme.outline),
-              ),
             ),
-            TextButton(
-              onPressed: () {
-                showDanmakuSearchDialog(searchKeyword);
-              },
-              child: const Text(
-                '提交',
+            ListTile(
+              title: const Text("Resolution"),
+              subtitle: Text(
+                '${playerController.debug.playerWidth}x${playerController.debug.playerHeight}',
               ),
+              onTap: () {
+                KazumiDialog.showToast(message: '已复制到剪贴板');
+                Clipboard.setData(
+                  ClipboardData(
+                    text:
+                        "Resolution\n${playerController.debug.playerWidth}x${playerController.debug.playerHeight}",
+                  ),
+                );
+              },
+            ),
+            ListTile(
+              title: const Text("VideoParams"),
+              subtitle: Text(
+                playerController.debug.playerVideoParams.toString(),
+              ),
+              onTap: () {
+                KazumiDialog.showToast(message: '已复制到剪贴板');
+                Clipboard.setData(
+                  ClipboardData(
+                    text:
+                        "VideoParams\n${playerController.debug.playerVideoParams.toString()}",
+                  ),
+                );
+              },
+            ),
+            ListTile(
+              title: const Text("AudioParams"),
+              subtitle: Text(
+                playerController.debug.playerAudioParams.toString(),
+              ),
+              onTap: () {
+                KazumiDialog.showToast(message: '已复制到剪贴板');
+                Clipboard.setData(
+                  ClipboardData(
+                    text:
+                        "AudioParams\n${playerController.debug.playerAudioParams.toString()}",
+                  ),
+                );
+              },
+            ),
+            ListTile(
+              title: const Text("Media"),
+              subtitle: Text(playerController.debug.playerPlaylist.toString()),
+              onTap: () {
+                KazumiDialog.showToast(message: '已复制到剪贴板');
+                Clipboard.setData(
+                  ClipboardData(
+                    text:
+                        "Media\n${playerController.debug.playerPlaylist.toString()}",
+                  ),
+                );
+              },
+            ),
+            ListTile(
+              title: const Text("AudioTrack"),
+              subtitle: Text(
+                playerController.debug.playerAudioTracks.toString(),
+              ),
+              onTap: () {
+                KazumiDialog.showToast(message: '已复制到剪贴板');
+                Clipboard.setData(
+                  ClipboardData(
+                    text:
+                        "AudioTrack\n${playerController.debug.playerAudioTracks.toString()}",
+                  ),
+                );
+              },
+            ),
+            ListTile(
+              title: const Text("VideoTrack"),
+              subtitle: Text(
+                playerController.debug.playerVideoTracks.toString(),
+              ),
+              onTap: () {
+                KazumiDialog.showToast(message: '已复制到剪贴板');
+                Clipboard.setData(
+                  ClipboardData(
+                    text:
+                        "VideoTrack\n${playerController.debug.playerVideoTracks.toString()}",
+                  ),
+                );
+              },
+            ),
+            ListTile(
+              title: const Text("AudioBitrate"),
+              subtitle: Text(
+                playerController.debug.playerAudioBitrate.toString(),
+              ),
+              onTap: () {
+                KazumiDialog.showToast(message: '已复制到剪贴板');
+                Clipboard.setData(
+                  ClipboardData(
+                    text:
+                        "AudioBitrate\n${playerController.debug.playerAudioBitrate.toString()}",
+                  ),
+                );
+              },
             ),
           ],
         );
@@ -1172,181 +1097,71 @@ class _PlayerItemState extends State<PlayerItem>
     );
   }
 
-  Widget get videoInfoBody {
-    return Observer(builder: (context) {
-      return ListView(
-        children: [
-          ListTile(
-            title: const Text("Source"),
-            subtitle: Text(playerController.videoUrl),
-            onTap: () {
-              KazumiDialog.showToast(message: '已复制到剪贴板');
-              Clipboard.setData(
-                ClipboardData(text: playerController.videoUrl),
-              );
-            },
-          ),
-          ListTile(
-            title: const Text("Resolution"),
-            subtitle: Text(
-                '${playerController.debug.playerWidth}x${playerController.debug.playerHeight}'),
-            onTap: () {
-              KazumiDialog.showToast(message: '已复制到剪贴板');
-              Clipboard.setData(
-                ClipboardData(
-                  text:
-                      "Resolution\n${playerController.debug.playerWidth}x${playerController.debug.playerHeight}",
-                ),
-              );
-            },
-          ),
-          ListTile(
-            title: const Text("VideoParams"),
-            subtitle: Text(playerController.debug.playerVideoParams.toString()),
-            onTap: () {
-              KazumiDialog.showToast(message: '已复制到剪贴板');
-              Clipboard.setData(
-                ClipboardData(
-                  text:
-                      "VideoParams\n${playerController.debug.playerVideoParams.toString()}",
-                ),
-              );
-            },
-          ),
-          ListTile(
-            title: const Text("AudioParams"),
-            subtitle: Text(playerController.debug.playerAudioParams.toString()),
-            onTap: () {
-              KazumiDialog.showToast(message: '已复制到剪贴板');
-              Clipboard.setData(
-                ClipboardData(
-                  text:
-                      "AudioParams\n${playerController.debug.playerAudioParams.toString()}",
-                ),
-              );
-            },
-          ),
-          ListTile(
-            title: const Text("Media"),
-            subtitle: Text(playerController.debug.playerPlaylist.toString()),
-            onTap: () {
-              KazumiDialog.showToast(message: '已复制到剪贴板');
-              Clipboard.setData(
-                ClipboardData(
-                  text:
-                      "Media\n${playerController.debug.playerPlaylist.toString()}",
-                ),
-              );
-            },
-          ),
-          ListTile(
-            title: const Text("AudioTrack"),
-            subtitle: Text(playerController.debug.playerAudioTracks.toString()),
-            onTap: () {
-              KazumiDialog.showToast(message: '已复制到剪贴板');
-              Clipboard.setData(
-                ClipboardData(
-                  text:
-                      "AudioTrack\n${playerController.debug.playerAudioTracks.toString()}",
-                ),
-              );
-            },
-          ),
-          ListTile(
-            title: const Text("VideoTrack"),
-            subtitle: Text(playerController.debug.playerVideoTracks.toString()),
-            onTap: () {
-              KazumiDialog.showToast(message: '已复制到剪贴板');
-              Clipboard.setData(
-                ClipboardData(
-                  text:
-                      "VideoTrack\n${playerController.debug.playerVideoTracks.toString()}",
-                ),
-              );
-            },
-          ),
-          ListTile(
-            title: const Text("AudioBitrate"),
-            subtitle:
-                Text(playerController.debug.playerAudioBitrate.toString()),
-            onTap: () {
-              KazumiDialog.showToast(message: '已复制到剪贴板');
-              Clipboard.setData(
-                ClipboardData(
-                  text:
-                      "AudioBitrate\n${playerController.debug.playerAudioBitrate.toString()}",
-                ),
-              );
-            },
-          ),
-        ],
-      );
-    });
-  }
-
   Widget get videoDebugLogBody {
     return Scaffold(
       body: Padding(
         padding: const EdgeInsets.fromLTRB(8.0, 8.0, 8.0, 0),
-        child: Observer(builder: (context) {
-          return ListView.builder(
-            itemCount: playerController.debug.playerLog.length,
-            itemBuilder: (context, index) {
-              return Text(playerController.debug.playerLog[index]);
-            },
-          );
-        }),
+        child: Observer(
+          builder: (context) {
+            return ListView.builder(
+              itemCount: playerController.debug.playerLog.length,
+              itemBuilder: (context, index) {
+                return Text(playerController.debug.playerLog[index]);
+              },
+            );
+          },
+        ),
       ),
       floatingActionButton: FloatingActionButton(
-          child: const Icon(Icons.copy),
-          onPressed: () {
-            Clipboard.setData(
-              ClipboardData(text: playerController.debug.playerLog.join('\n')),
-            );
-          }),
+        child: const Icon(Icons.copy),
+        onPressed: () {
+          Clipboard.setData(
+            ClipboardData(text: playerController.debug.playerLog.join('\n')),
+          );
+        },
+      ),
     );
   }
 
   void showVideoInfo() async {
     showModalBottomSheet(
-        isScrollControlled: true,
-        constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(context).size.height * 3 / 4,
-            maxWidth: (isDesktop() || isTablet())
-                ? MediaQuery.of(context).size.width * 9 / 16
-                : MediaQuery.of(context).size.width),
-        clipBehavior: Clip.antiAlias,
-        context: context,
-        builder: (context) {
-          return DefaultTabController(
-            length: 2,
-            child: Scaffold(
-              body: Column(
-                children: [
-                  const PreferredSize(
-                    preferredSize: Size.fromHeight(kToolbarHeight),
-                    child: Material(
-                      child: TabBar(
-                        tabs: [
-                          Tab(text: '状态'),
-                          Tab(text: '日志'),
-                        ],
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: TabBarView(
-                      children: [
-                        videoInfoBody,
-                        videoDebugLogBody,
+      isScrollControlled: true,
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 3 / 4,
+        maxWidth: (isDesktop() || isTablet())
+            ? MediaQuery.of(context).size.width * 9 / 16
+            : MediaQuery.of(context).size.width,
+      ),
+      clipBehavior: Clip.antiAlias,
+      context: context,
+      builder: (context) {
+        return DefaultTabController(
+          length: 2,
+          child: Scaffold(
+            body: Column(
+              children: [
+                const PreferredSize(
+                  preferredSize: Size.fromHeight(kToolbarHeight),
+                  child: Material(
+                    child: TabBar(
+                      tabs: [
+                        Tab(text: '状态'),
+                        Tab(text: '日志'),
                       ],
                     ),
                   ),
-                ],
-              ),
+                ),
+                Expanded(
+                  child: TabBarView(
+                    children: [videoInfoBody, videoDebugLogBody],
+                  ),
+                ),
+              ],
             ),
-          );
-        });
+          ),
+        );
+      },
+    );
   }
 
   void showSyncPlayEndPointSwitchDialog() {
@@ -1358,120 +1173,118 @@ class _PlayerItemState extends State<PlayerItem>
     final String defaultCustomSyncPlayEndPoint = '自定义服务器';
     String customSyncPlayEndPoint = defaultCustomSyncPlayEndPoint;
     String selectedSyncPlayEndPoint = setting.get(
-        SettingBoxKey.syncPlayEndPoint,
-        defaultValue: defaultSyncPlayEndPoint);
+      SettingBoxKey.syncPlayEndPoint,
+      defaultValue: defaultSyncPlayEndPoint,
+    );
 
     KazumiDialog.show(
       builder: (context) {
-        return StatefulBuilder(builder: (context, setDialogState) {
-          List<String> syncPlayEndPoints = [];
-          syncPlayEndPoints.addAll(defaultSyncPlayEndPoints);
-          syncPlayEndPoints.add(customSyncPlayEndPoint);
-          if (!syncPlayEndPoints.contains(selectedSyncPlayEndPoint)) {
-            syncPlayEndPoints.add(selectedSyncPlayEndPoint);
-          }
-          return AlertDialog(
-            title: const Text('选择服务器'),
-            content: SingleChildScrollView(
-              child: ListBody(
-                children: <Widget>[
-                  DropdownButtonFormField<String>(
-                    key: ValueKey(selectedSyncPlayEndPoint),
-                    decoration: InputDecoration(
-                      border: OutlineInputBorder(),
-                    ),
-                    isExpanded: true,
-                    initialValue: selectedSyncPlayEndPoint,
-                    items: syncPlayEndPoints.map((String value) {
-                      return DropdownMenuItem<String>(
-                        value: value,
-                        child: Text(
-                          value,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      );
-                    }).toList(),
-                    selectedItemBuilder: (context) {
-                      return syncPlayEndPoints.map((String value) {
-                        return Text(
-                          value,
-                          overflow: TextOverflow.ellipsis,
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            List<String> syncPlayEndPoints = [];
+            syncPlayEndPoints.addAll(defaultSyncPlayEndPoints);
+            syncPlayEndPoints.add(customSyncPlayEndPoint);
+            if (!syncPlayEndPoints.contains(selectedSyncPlayEndPoint)) {
+              syncPlayEndPoints.add(selectedSyncPlayEndPoint);
+            }
+            return AlertDialog(
+              title: const Text('选择服务器'),
+              content: SingleChildScrollView(
+                child: ListBody(
+                  children: <Widget>[
+                    DropdownButtonFormField<String>(
+                      key: ValueKey(selectedSyncPlayEndPoint),
+                      decoration: InputDecoration(border: OutlineInputBorder()),
+                      isExpanded: true,
+                      initialValue: selectedSyncPlayEndPoint,
+                      items: syncPlayEndPoints.map((String value) {
+                        return DropdownMenuItem<String>(
+                          value: value,
+                          child: Text(value, overflow: TextOverflow.ellipsis),
                         );
-                      }).toList();
-                    },
-                    onChanged: (String? newValue) {
-                      if (newValue != null) {
-                        if (newValue == defaultCustomSyncPlayEndPoint) {
-                          String serverText = '';
-                          KazumiDialog.show(
-                            builder: (context) {
-                              return AlertDialog(
-                                title: const Text('自定义服务器'),
-                                content: TextField(
-                                  decoration: const InputDecoration(
-                                    hintText: '请输入服务器地址',
+                      }).toList(),
+                      selectedItemBuilder: (context) {
+                        return syncPlayEndPoints.map((String value) {
+                          return Text(value, overflow: TextOverflow.ellipsis);
+                        }).toList();
+                      },
+                      onChanged: (String? newValue) {
+                        if (newValue != null) {
+                          if (newValue == defaultCustomSyncPlayEndPoint) {
+                            String serverText = '';
+                            KazumiDialog.show(
+                              builder: (context) {
+                                return AlertDialog(
+                                  title: const Text('自定义服务器'),
+                                  content: TextField(
+                                    decoration: const InputDecoration(
+                                      hintText: '请输入服务器地址',
+                                    ),
+                                    onChanged: (value) => serverText = value,
                                   ),
-                                  onChanged: (value) => serverText = value,
-                                ),
-                                actions: <Widget>[
-                                  TextButton(
-                                    child: const Text('取消'),
-                                    onPressed: () {
-                                      KazumiDialog.dismiss();
-                                    },
-                                  ),
-                                  TextButton(
-                                    child: const Text('确认'),
-                                    onPressed: () {
-                                      if (serverText.isNotEmpty &&
-                                          !syncPlayEndPoints
-                                              .contains(serverText)) {
+                                  actions: <Widget>[
+                                    TextButton(
+                                      child: const Text('取消'),
+                                      onPressed: () {
                                         KazumiDialog.dismiss();
-                                        setDialogState(() {
-                                          customSyncPlayEndPoint = serverText;
-                                          selectedSyncPlayEndPoint = serverText;
-                                        });
-                                      } else {
-                                        KazumiDialog.showToast(
-                                            message: '服务器地址不能重复或为空');
-                                      }
-                                    },
-                                  ),
-                                ],
-                              );
-                            },
-                          );
-                        } else {
-                          setDialogState(() {
-                            selectedSyncPlayEndPoint = newValue;
-                          });
+                                      },
+                                    ),
+                                    TextButton(
+                                      child: const Text('确认'),
+                                      onPressed: () {
+                                        if (serverText.isNotEmpty &&
+                                            !syncPlayEndPoints.contains(
+                                              serverText,
+                                            )) {
+                                          KazumiDialog.dismiss();
+                                          setDialogState(() {
+                                            customSyncPlayEndPoint = serverText;
+                                            selectedSyncPlayEndPoint =
+                                                serverText;
+                                          });
+                                        } else {
+                                          KazumiDialog.showToast(
+                                            message: '服务器地址不能重复或为空',
+                                          );
+                                        }
+                                      },
+                                    ),
+                                  ],
+                                );
+                              },
+                            );
+                          } else {
+                            setDialogState(() {
+                              selectedSyncPlayEndPoint = newValue;
+                            });
+                          }
                         }
-                      }
-                    },
-                  ),
-                ],
+                      },
+                    ),
+                  ],
+                ),
               ),
-            ),
-            actions: <Widget>[
-              TextButton(
-                child: const Text('取消'),
-                onPressed: () {
-                  KazumiDialog.dismiss();
-                },
-              ),
-              TextButton(
-                child: const Text('确认'),
-                onPressed: () {
-                  setting.put(
-                    SettingBoxKey.syncPlayEndPoint,
-                    selectedSyncPlayEndPoint,
-                  );
-                  KazumiDialog.dismiss();
-                },
-              ),
-            ],
-          );
-        });
+              actions: <Widget>[
+                TextButton(
+                  child: const Text('取消'),
+                  onPressed: () {
+                    KazumiDialog.dismiss();
+                  },
+                ),
+                TextButton(
+                  child: const Text('确认'),
+                  onPressed: () {
+                    setting.put(
+                      SettingBoxKey.syncPlayEndPoint,
+                      selectedSyncPlayEndPoint,
+                    );
+                    KazumiDialog.dismiss();
+                  },
+                ),
+              ],
+            );
+          },
+        );
       },
     );
   }
@@ -1480,71 +1293,72 @@ class _PlayerItemState extends State<PlayerItem>
     final formKey = GlobalKey<FormState>();
     String room = '';
     String username = '';
-    KazumiDialog.show(builder: (BuildContext context) {
-      return AlertDialog(
-        title: const Text('加入房间'),
-        content: Form(
-          key: formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: '房间号',
+    KazumiDialog.show(
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('加入房间'),
+          content: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: '房间号'),
+                  onChanged: (value) => room = value,
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return '请输入房间号';
+                    }
+                    final regex = RegExp(r'^[0-9]{6,10}$');
+                    if (!regex.hasMatch(value)) {
+                      return '房间号需要6到10位数字';
+                    }
+                    return null;
+                  },
                 ),
-                onChanged: (value) => room = value,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return '请输入房间号';
-                  }
-                  final regex = RegExp(r'^[0-9]{6,10}$');
-                  if (!regex.hasMatch(value)) {
-                    return '房间号需要6到10位数字';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                decoration: const InputDecoration(
-                  labelText: '用户名',
+                const SizedBox(height: 16),
+                TextFormField(
+                  decoration: const InputDecoration(labelText: '用户名'),
+                  onChanged: (value) => username = value,
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return '请输入用户名';
+                    }
+                    final regex = RegExp(r'^[a-zA-Z]{4,12}$');
+                    if (!regex.hasMatch(value)) {
+                      return '用户名必须为4到12位英文字符';
+                    }
+                    return null;
+                  },
                 ),
-                onChanged: (value) => username = value,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return '请输入用户名';
-                  }
-                  final regex = RegExp(r'^[a-zA-Z]{4,12}$');
-                  if (!regex.hasMatch(value)) {
-                    return '用户名必须为4到12位英文字符';
-                  }
-                  return null;
-                },
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              KazumiDialog.dismiss();
-            },
-            child: const Text('取消'),
-          ),
-          TextButton(
-            onPressed: () {
-              if (formKey.currentState!.validate()) {
+          actions: [
+            TextButton(
+              onPressed: () {
                 KazumiDialog.dismiss();
-                playerController.createSyncPlayRoom(
-                    room, username, widget.changeEpisode);
-              }
-            },
-            child: const Text('确定'),
-          ),
-        ],
-      );
-    });
+              },
+              child: const Text('取消'),
+            ),
+            TextButton(
+              onPressed: () {
+                if (formKey.currentState!.validate()) {
+                  KazumiDialog.dismiss();
+                  playerController.createSyncPlayRoom(
+                    room,
+                    username,
+                    widget.changeEpisode,
+                  );
+                }
+              },
+              child: const Text('确定'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   /// Used to decide which panel is used.
@@ -1643,44 +1457,58 @@ class _PlayerItemState extends State<PlayerItem>
       curve: Curves.linear,
     );
     webDavEnable = setting.get(SettingBoxKey.webDavEnable, defaultValue: false);
-    webDavEnableHistory =
-        setting.get(SettingBoxKey.webDavEnableHistory, defaultValue: false);
-    playerController.danmaku.danmakuOn =
-        setting.get(SettingBoxKey.danmakuEnabledByDefault, defaultValue: false);
+    webDavEnableHistory = setting.get(
+      SettingBoxKey.webDavEnableHistory,
+      defaultValue: false,
+    );
+    playerController.danmaku.danmakuOn = false;
     _border = setting.get(SettingBoxKey.danmakuBorder, defaultValue: true);
     _opacity = setting.get(SettingBoxKey.danmakuOpacity, defaultValue: 1.0);
-    _fontSize = setting.get(SettingBoxKey.danmakuFontSize,
-        defaultValue: (isCompact()) ? 16.0 : 25.0);
+    _fontSize = setting.get(
+      SettingBoxKey.danmakuFontSize,
+      defaultValue: (isCompact()) ? 16.0 : 25.0,
+    );
     _danmakuArea = setting.get(SettingBoxKey.danmakuArea, defaultValue: 1.0);
     _hideTop = !setting.get(SettingBoxKey.danmakuTop, defaultValue: true);
-    _hideBottom =
-        !setting.get(SettingBoxKey.danmakuBottom, defaultValue: false);
+    _hideBottom = !setting.get(
+      SettingBoxKey.danmakuBottom,
+      defaultValue: false,
+    );
     _hideScroll = !setting.get(SettingBoxKey.danmakuScroll, defaultValue: true);
-    _massiveMode =
-        setting.get(SettingBoxKey.danmakuMassive, defaultValue: false);
-    _danmakuColor = setting.get(SettingBoxKey.danmakuColor, defaultValue: true);
-    _danmakuDuration =
-        setting.get(SettingBoxKey.danmakuDuration, defaultValue: 8.0);
-    _danmakuLineHeight =
-        setting.get(SettingBoxKey.danmakuLineHeight, defaultValue: 1.6);
-    _danmakuBiliBiliSource =
-        setting.get(SettingBoxKey.danmakuBiliBiliSource, defaultValue: true);
-    _danmakuGamerSource =
-        setting.get(SettingBoxKey.danmakuGamerSource, defaultValue: true);
-    _danmakuDanDanSource =
-        setting.get(SettingBoxKey.danmakuDanDanSource, defaultValue: true);
-    _danmakuFontWeight =
-        setting.get(SettingBoxKey.danmakuFontWeight, defaultValue: 4);
-    _danmakuUseSystemFont =
-        setting.get(SettingBoxKey.useSystemFont, defaultValue: false);
-    _danmakuBorderSize =
-        setting.get(SettingBoxKey.danmakuBorderSize, defaultValue: 1.5);
+    _massiveMode = setting.get(
+      SettingBoxKey.danmakuMassive,
+      defaultValue: false,
+    );
+    _danmakuDuration = setting.get(
+      SettingBoxKey.danmakuDuration,
+      defaultValue: 8.0,
+    );
+    _danmakuLineHeight = setting.get(
+      SettingBoxKey.danmakuLineHeight,
+      defaultValue: 1.6,
+    );
+    _danmakuFontWeight = setting.get(
+      SettingBoxKey.danmakuFontWeight,
+      defaultValue: 4,
+    );
+    _danmakuUseSystemFont = setting.get(
+      SettingBoxKey.useSystemFont,
+      defaultValue: false,
+    );
+    _danmakuBorderSize = setting.get(
+      SettingBoxKey.danmakuBorderSize,
+      defaultValue: 1.5,
+    );
     haEnable = setting.get(SettingBoxKey.hAenable, defaultValue: true);
     autoPlayNext = setting.get(SettingBoxKey.autoPlayNext, defaultValue: true);
-    backgroundPlayback =
-        setting.get(SettingBoxKey.backgroundPlayback, defaultValue: false);
-    brightnessVolumeGesture =
-        setting.get(SettingBoxKey.brightnessVolumeGesture, defaultValue: true);
+    backgroundPlayback = setting.get(
+      SettingBoxKey.backgroundPlayback,
+      defaultValue: false,
+    );
+    brightnessVolumeGesture = setting.get(
+      SettingBoxKey.brightnessVolumeGesture,
+      defaultValue: true,
+    );
     unawaited(_bindAudioService());
     playerTimer = getPlayerTimer();
     windowManager.addListener(this);
@@ -1714,15 +1542,17 @@ class _PlayerItemState extends State<PlayerItem>
 
   @override
   Widget build(BuildContext context) {
-    collectType =
-        collectController.getCollectType(videoPageController.bangumiItem);
+    collectType = collectController.getCollectType(
+      videoPageController.bangumiItem,
+    );
     return Observer(
       builder: (context) {
         return ClipRect(
           child: Container(
             color: Colors.black,
             child: MouseRegion(
-              cursor: (videoPageController.isFullscreen &&
+              cursor:
+                  (videoPageController.isFullscreen &&
                       !playerController.panel.showVideoController)
                   ? SystemMouseCursors.none
                   : SystemMouseCursors.basic,
@@ -1753,279 +1583,311 @@ class _PlayerItemState extends State<PlayerItem>
                   }
                 },
                 child: SizedBox(
-                  height: videoPageController.isFullscreen ||
+                  height:
+                      videoPageController.isFullscreen ||
                           videoPageController.isPip
                       ? (MediaQuery.of(context).size.height)
                       : (MediaQuery.of(context).size.width * 9.0 / (16.0)),
                   width: MediaQuery.of(context).size.width,
-                  child: Stack(alignment: Alignment.center, children: [
-                    Center(
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Center(
                         child: Focus(
-                            // workaround for #461
-                            // I don't know why, but the focus node will break popscope.
-                            focusNode: widget.keyboardFocus,
-                            autofocus: true,
-                            onKeyEvent: (focusNode, KeyEvent event) {
-                              bool handled = false;
-                              final keyLabel =
-                                  event.logicalKey.keyLabel.isNotEmpty
-                                      ? event.logicalKey.keyLabel
-                                      : event.logicalKey.debugName ?? '';
-                              if (event is KeyDownEvent) {
-                                handled = handleShortcutDown(keyLabel);
-                              } else if (event is KeyRepeatEvent) {
-                                handled =
-                                    handleShortcutLongPress(keyLabel, "Repeat");
-                              } else if (event is KeyUpEvent) {
-                                handled =
-                                    handleShortcutLongPress(keyLabel, "Up");
-                              }
-                              return handled
-                                  ? KeyEventResult.handled
-                                  : KeyEventResult.ignored;
-                            },
-                            child: PlayerItemSurface(
-                                playerController: playerController))),
-                    (playerController.playback.isBuffering ||
-                            videoPageController.loading)
-                        ? const Positioned.fill(
-                            child: Center(
-                              child: CircularProgressIndicator(),
-                            ),
-                          )
-                        : Container(),
-                    GestureDetector(
-                      onTap: () {
-                        _handleTap();
-                      },
-                      onDoubleTap: (playerController.panel.lockPanel)
-                          ? null
-                          : () {
-                              _handleDoubleTap();
-                            },
-                      onLongPressStart: (_) {
-                        if (playerController.panel.lockPanel) {
-                          return;
-                        }
-                        setState(() {
-                          playerController.panel.showPlaySpeed = true;
-                        });
-                        lastPlayerSpeed = playerController.playback.playerSpeed;
-                        setPlaybackSpeed(2.0);
-                      },
-                      onLongPressEnd: (_) {
-                        if (playerController.panel.lockPanel) {
-                          return;
-                        }
-                        setState(() {
-                          playerController.panel.showPlaySpeed = false;
-                        });
-                        setPlaybackSpeed(lastPlayerSpeed);
-                      },
-                      child: Container(
-                        color: Colors.transparent,
-                        width: double.infinity,
-                        height: double.infinity,
-                      ),
-                    ),
-                    // 弹幕面板
-                    Positioned(
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      height: videoPageController.isFullscreen ||
-                              videoPageController.isPip
-                          ? MediaQuery.sizeOf(context).height
-                          : (MediaQuery.sizeOf(context).width * 9 / 16),
-                      child: DanmakuScreen(
-                        key: _danmuKey,
-                        createdController: (DanmakuController e) {
-                          playerController.danmaku.canvasController = e;
-                          WidgetsBinding.instance.addPostFrameCallback((_) {
-                            playerController.updateDanmakuSpeed();
-                          });
-                        },
-                        option: DanmakuOption(
-                          hideTop: _hideTop,
-                          hideScroll: _hideScroll,
-                          hideBottom: _hideBottom,
-                          area: _danmakuArea,
-                          opacity: _opacity,
-                          fontSize: _fontSize,
-                          duration: _danmakuDuration /
-                              playerController.playback.playerSpeed,
-                          lineHeight: _danmakuLineHeight,
-                          strokeWidth: _border ? _danmakuBorderSize : 0.0,
-                          fontWeight: _danmakuFontWeight,
-                          massiveMode: _massiveMode,
-                          fontFamily: _danmakuUseSystemFont
-                              ? null
-                              : customAppFontFamily,
+                          // workaround for #461
+                          // I don't know why, but the focus node will break popscope.
+                          focusNode: widget.keyboardFocus,
+                          autofocus: true,
+                          onKeyEvent: (focusNode, KeyEvent event) {
+                            bool handled = false;
+                            final keyLabel =
+                                event.logicalKey.keyLabel.isNotEmpty
+                                ? event.logicalKey.keyLabel
+                                : event.logicalKey.debugName ?? '';
+                            if (event is KeyDownEvent) {
+                              handled = handleShortcutDown(keyLabel);
+                            } else if (event is KeyRepeatEvent) {
+                              handled = handleShortcutLongPress(
+                                keyLabel,
+                                "Repeat",
+                              );
+                            } else if (event is KeyUpEvent) {
+                              handled = handleShortcutLongPress(keyLabel, "Up");
+                            }
+                            return handled
+                                ? KeyEventResult.handled
+                                : KeyEventResult.ignored;
+                          },
+                          child: PlayerItemSurface(
+                            playerController: playerController,
+                          ),
                         ),
                       ),
-                    ),
-                    Positioned.fill(
-                      child: PlayerScreenshotFeedbackOverlay(
-                        animation: _screenshotFeedbackAnimation,
+                      (playerController.playback.isBuffering ||
+                              videoPageController.loading)
+                          ? const Positioned.fill(
+                              child: Center(child: CircularProgressIndicator()),
+                            )
+                          : Container(),
+                      GestureDetector(
+                        onTap: () {
+                          _handleTap();
+                        },
+                        onDoubleTap: (playerController.panel.lockPanel)
+                            ? null
+                            : () {
+                                _handleDoubleTap();
+                              },
+                        onLongPressStart: (_) {
+                          if (playerController.panel.lockPanel) {
+                            return;
+                          }
+                          setState(() {
+                            playerController.panel.showPlaySpeed = true;
+                          });
+                          lastPlayerSpeed =
+                              playerController.playback.playerSpeed;
+                          setPlaybackSpeed(2.0);
+                        },
+                        onLongPressEnd: (_) {
+                          if (playerController.panel.lockPanel) {
+                            return;
+                          }
+                          setState(() {
+                            playerController.panel.showPlaySpeed = false;
+                          });
+                          setPlaybackSpeed(lastPlayerSpeed);
+                        },
+                        child: Container(
+                          color: Colors.transparent,
+                          width: double.infinity,
+                          height: double.infinity,
+                        ),
                       ),
-                    ),
-                    // 播放器控制面板
-                    (needFullPanel(context))
-                        ? PlayerItemPanel(
-                            playerController: playerController,
-                            onBackPressed: widget.onBackPressed,
-                            setPlaybackSpeed: setPlaybackSpeed,
-                            showDanmakuSwitch: showDanmakuSwitch,
-                            changeEpisode: widget.changeEpisode,
-                            toggleMenu: widget.toggleMenu,
-                            handleFullscreen: handleFullscreen,
-                            handleProgressBarDragStart:
-                                handleProgressBarDragStart,
-                            handleProgressBarDragEnd: handleProgressBarDragEnd,
-                            handleSuperResolutionChange:
-                                handleSuperResolutionChange,
-                            handlePreNextEpisode: handlePreNextEpisode,
-                            panelVisibilityController:
-                                _panelVisibilityController,
-                            keyboardFocus: widget.keyboardFocus,
-                            sendDanmaku: widget.sendDanmaku,
-                            acquirePlayerPanelHold: acquirePlayerPanelHold,
-                            handleDanmaku: handleDanmaku,
-                            showVideoInfo: showVideoInfo,
-                            showSyncPlayRoomCreateDialog:
-                                showSyncPlayRoomCreateDialog,
-                            showSyncPlayEndPointSwitchDialog:
-                                showSyncPlayEndPointSwitchDialog,
-                            showDanmakuDestinationPickerAndSend:
-                                widget.showDanmakuDestinationPickerAndSend,
-                            pauseForTimedShutdown: widget.pauseForTimedShutdown,
-                            disableAnimations: widget.disableAnimations,
-                            handleScreenShot: handleScreenshot,
-                            skipOP: skipOP,
-                          )
-                        : SmallestPlayerItemPanel(
-                            playerController: playerController,
-                            onBackPressed: widget.onBackPressed,
-                            setPlaybackSpeed: setPlaybackSpeed,
-                            showDanmakuSwitch: showDanmakuSwitch,
-                            handleFullscreen: handleFullscreen,
-                            handleProgressBarDragStart:
-                                handleProgressBarDragStart,
-                            handleProgressBarDragEnd: handleProgressBarDragEnd,
-                            handleSuperResolutionChange:
-                                handleSuperResolutionChange,
-                            panelVisibilityController:
-                                _panelVisibilityController,
-                            keyboardFocus: widget.keyboardFocus,
-                            acquirePlayerPanelHold: acquirePlayerPanelHold,
-                            handleDanmaku: handleDanmaku,
-                            showVideoInfo: showVideoInfo,
-                            showSyncPlayRoomCreateDialog:
-                                showSyncPlayRoomCreateDialog,
-                            showSyncPlayEndPointSwitchDialog:
-                                showSyncPlayEndPointSwitchDialog,
-                            pauseForTimedShutdown: widget.pauseForTimedShutdown,
-                            disableAnimations: widget.disableAnimations,
-                            skipOP: skipOP,
+                      // 弹幕面板
+                      Positioned(
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        height:
+                            videoPageController.isFullscreen ||
+                                videoPageController.isPip
+                            ? MediaQuery.sizeOf(context).height
+                            : (MediaQuery.sizeOf(context).width * 9 / 16),
+                        child: DanmakuScreen(
+                          key: _danmuKey,
+                          createdController: (DanmakuController e) {
+                            playerController.danmaku.canvasController = e;
+                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                              playerController.updateDanmakuSpeed();
+                            });
+                          },
+                          option: DanmakuOption(
+                            hideTop: _hideTop,
+                            hideScroll: _hideScroll,
+                            hideBottom: _hideBottom,
+                            area: _danmakuArea,
+                            opacity: _opacity,
+                            fontSize: _fontSize,
+                            duration:
+                                _danmakuDuration /
+                                playerController.playback.playerSpeed,
+                            lineHeight: _danmakuLineHeight,
+                            strokeWidth: _border ? _danmakuBorderSize : 0.0,
+                            fontWeight: _danmakuFontWeight,
+                            massiveMode: _massiveMode,
+                            fontFamily: _danmakuUseSystemFont
+                                ? null
+                                : customAppFontFamily,
                           ),
-                    // 播放器手势控制
-                    Positioned.fill(
-                      left: 16,
-                      top: 25,
-                      right: 15,
-                      bottom: 15,
-                      child: (isDesktop() || playerController.panel.lockPanel)
-                          ? Container()
-                          : GestureDetector(
-                              onHorizontalDragStart: (_) {
-                                playerController.panel.seekDirection = 0;
-                              },
-                              onHorizontalDragUpdate:
-                                  (DragUpdateDetails details) {
-                                playerController.panel.showSeekTime = true;
-                                if (details.delta.dx != 0) {
-                                  playerController.panel.seekDirection =
-                                      details.delta.dx > 0 ? 1 : -1;
-                                }
-                                playerTimer?.cancel();
-                                playerController.pause(enableSync: false);
-                                final double scale =
-                                    180000 / MediaQuery.sizeOf(context).width;
-                                int ms = (playerController.playback
-                                            .currentPosition.inMilliseconds +
-                                        (details.delta.dx * scale).round())
-                                    .clamp(
-                                        0,
-                                        playerController
-                                            .playback.duration.inMilliseconds);
-                                playerController.playback.currentPosition =
-                                    Duration(milliseconds: ms);
-                              },
-                              onHorizontalDragEnd: (_) {
-                                playerController.play(enableSync: false);
-                                playerController.seek(
-                                    playerController.playback.currentPosition);
-                                playerTimer?.cancel();
-                                playerTimer = getPlayerTimer();
-                                playerController.panel.showSeekTime = false;
-                                playerController.panel.seekDirection = 0;
-                              },
-                              onVerticalDragUpdate:
-                                  (DragUpdateDetails details) async {
-                                if (!brightnessVolumeGesture) {
-                                  return;
-                                }
-                                final double totalWidth =
-                                    MediaQuery.sizeOf(context).width;
-                                final double totalHeight =
-                                    MediaQuery.sizeOf(context).height;
-                                final double tapPosition =
-                                    details.localPosition.dx;
-                                final double sectionWidth = totalWidth / 2;
-                                final double delta = details.delta.dy;
-
-                                if (tapPosition < sectionWidth) {
-                                  // 左边区域
-                                  playerController.panel.brightnessSeeking =
-                                      true;
-                                  _showBrightnessAdjustmentHud();
-                                  final double level = (totalHeight) * 2;
-                                  final double brightness =
-                                      playerController.panel.brightness -
-                                          delta / level;
-                                  final double result =
-                                      brightness.clamp(0.0, 1.0);
-                                  setBrightness(result);
-                                  playerController.panel.brightness = result;
-                                } else {
-                                  // 右边区域
-                                  _showVolumeAdjustmentHud();
-                                  if (!playerController.panel.volumeSeeking) {
-                                    playerController.panel.volumeSeeking = true;
-                                    playerController.playback
-                                        .invalidatePreciseVolume();
-                                  }
-                                  final double baseVolume = playerController
-                                              .playback.preciseVolume >=
-                                          0
-                                      ? playerController.playback.preciseVolume
-                                      : playerController.playback.volume;
-                                  final double level = (totalHeight) * 0.03;
-                                  final double volume =
-                                      baseVolume - delta / level;
-                                  playerController
-                                      .setVolumeDuringGesture(volume);
-                                }
-                              },
-                              onVerticalDragEnd: (_) {
-                                _finishAdjustmentGesture();
-                              },
-                              onVerticalDragCancel: () {
-                                _finishAdjustmentGesture();
-                              },
+                        ),
+                      ),
+                      Positioned.fill(
+                        child: PlayerScreenshotFeedbackOverlay(
+                          animation: _screenshotFeedbackAnimation,
+                        ),
+                      ),
+                      // 播放器控制面板
+                      (needFullPanel(context))
+                          ? PlayerItemPanel(
+                              playerController: playerController,
+                              onBackPressed: widget.onBackPressed,
+                              setPlaybackSpeed: setPlaybackSpeed,
+                              changeEpisode: widget.changeEpisode,
+                              toggleMenu: widget.toggleMenu,
+                              handleFullscreen: handleFullscreen,
+                              handleProgressBarDragStart:
+                                  handleProgressBarDragStart,
+                              handleProgressBarDragEnd:
+                                  handleProgressBarDragEnd,
+                              handleSuperResolutionChange:
+                                  handleSuperResolutionChange,
+                              handlePreNextEpisode: handlePreNextEpisode,
+                              panelVisibilityController:
+                                  _panelVisibilityController,
+                              acquirePlayerPanelHold: acquirePlayerPanelHold,
+                              showVideoInfo: showVideoInfo,
+                              showSyncPlayRoomCreateDialog:
+                                  showSyncPlayRoomCreateDialog,
+                              showSyncPlayEndPointSwitchDialog:
+                                  showSyncPlayEndPointSwitchDialog,
+                              pauseForTimedShutdown:
+                                  widget.pauseForTimedShutdown,
+                              disableAnimations: widget.disableAnimations,
+                              handleScreenShot: handleScreenshot,
+                              skipOP: skipOP,
+                            )
+                          : SmallestPlayerItemPanel(
+                              playerController: playerController,
+                              onBackPressed: widget.onBackPressed,
+                              setPlaybackSpeed: setPlaybackSpeed,
+                              handleFullscreen: handleFullscreen,
+                              handleProgressBarDragStart:
+                                  handleProgressBarDragStart,
+                              handleProgressBarDragEnd:
+                                  handleProgressBarDragEnd,
+                              handleSuperResolutionChange:
+                                  handleSuperResolutionChange,
+                              panelVisibilityController:
+                                  _panelVisibilityController,
+                              acquirePlayerPanelHold: acquirePlayerPanelHold,
+                              showVideoInfo: showVideoInfo,
+                              showSyncPlayRoomCreateDialog:
+                                  showSyncPlayRoomCreateDialog,
+                              showSyncPlayEndPointSwitchDialog:
+                                  showSyncPlayEndPointSwitchDialog,
+                              pauseForTimedShutdown:
+                                  widget.pauseForTimedShutdown,
+                              disableAnimations: widget.disableAnimations,
+                              skipOP: skipOP,
                             ),
-                    ),
-                  ]),
+                      // 播放器手势控制
+                      Positioned.fill(
+                        left: 16,
+                        top: 25,
+                        right: 15,
+                        bottom: 15,
+                        child: (isDesktop() || playerController.panel.lockPanel)
+                            ? Container()
+                            : GestureDetector(
+                                onHorizontalDragStart: (_) {
+                                  playerController.panel.seekDirection = 0;
+                                },
+                                onHorizontalDragUpdate:
+                                    (DragUpdateDetails details) {
+                                      playerController.panel.showSeekTime =
+                                          true;
+                                      if (details.delta.dx != 0) {
+                                        playerController.panel.seekDirection =
+                                            details.delta.dx > 0 ? 1 : -1;
+                                      }
+                                      playerTimer?.cancel();
+                                      playerController.pause(enableSync: false);
+                                      final double scale =
+                                          180000 /
+                                          MediaQuery.sizeOf(context).width;
+                                      int ms =
+                                          (playerController
+                                                      .playback
+                                                      .currentPosition
+                                                      .inMilliseconds +
+                                                  (details.delta.dx * scale)
+                                                      .round())
+                                              .clamp(
+                                                0,
+                                                playerController
+                                                    .playback
+                                                    .duration
+                                                    .inMilliseconds,
+                                              );
+                                      playerController
+                                          .playback
+                                          .currentPosition = Duration(
+                                        milliseconds: ms,
+                                      );
+                                    },
+                                onHorizontalDragEnd: (_) {
+                                  playerController.play(enableSync: false);
+                                  playerController.seek(
+                                    playerController.playback.currentPosition,
+                                  );
+                                  playerTimer?.cancel();
+                                  playerTimer = getPlayerTimer();
+                                  playerController.panel.showSeekTime = false;
+                                  playerController.panel.seekDirection = 0;
+                                },
+                                onVerticalDragUpdate:
+                                    (DragUpdateDetails details) async {
+                                      if (!brightnessVolumeGesture) {
+                                        return;
+                                      }
+                                      final double totalWidth =
+                                          MediaQuery.sizeOf(context).width;
+                                      final double totalHeight =
+                                          MediaQuery.sizeOf(context).height;
+                                      final double tapPosition =
+                                          details.localPosition.dx;
+                                      final double sectionWidth =
+                                          totalWidth / 2;
+                                      final double delta = details.delta.dy;
+
+                                      if (tapPosition < sectionWidth) {
+                                        // 左边区域
+                                        playerController
+                                                .panel
+                                                .brightnessSeeking =
+                                            true;
+                                        _showBrightnessAdjustmentHud();
+                                        final double level = (totalHeight) * 2;
+                                        final double brightness =
+                                            playerController.panel.brightness -
+                                            delta / level;
+                                        final double result = brightness.clamp(
+                                          0.0,
+                                          1.0,
+                                        );
+                                        setBrightness(result);
+                                        playerController.panel.brightness =
+                                            result;
+                                      } else {
+                                        // 右边区域
+                                        _showVolumeAdjustmentHud();
+                                        if (!playerController
+                                            .panel
+                                            .volumeSeeking) {
+                                          playerController.panel.volumeSeeking =
+                                              true;
+                                          playerController.playback
+                                              .invalidatePreciseVolume();
+                                        }
+                                        final double baseVolume =
+                                            playerController
+                                                    .playback
+                                                    .preciseVolume >=
+                                                0
+                                            ? playerController
+                                                  .playback
+                                                  .preciseVolume
+                                            : playerController.playback.volume;
+                                        final double level =
+                                            (totalHeight) * 0.03;
+                                        final double volume =
+                                            baseVolume - delta / level;
+                                        playerController.setVolumeDuringGesture(
+                                          volume,
+                                        );
+                                      }
+                                    },
+                                onVerticalDragEnd: (_) {
+                                  _finishAdjustmentGesture();
+                                },
+                                onVerticalDragCancel: () {
+                                  _finishAdjustmentGesture();
+                                },
+                              ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),

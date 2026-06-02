@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:kazumi/modules/roads/road_module.dart';
+import 'package:kazumi/modules/laeva/laeva_bangumi_models.dart';
 import 'package:kazumi/plugins/plugins_controller.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 import 'package:kazumi/plugins/plugins.dart';
@@ -18,6 +19,7 @@ import 'package:kazumi/modules/bangumi/episode_item.dart';
 import 'package:kazumi/modules/comments/comment_item.dart';
 import 'package:kazumi/modules/comments/comment_response.dart';
 import 'package:kazumi/request/apis/bangumi_api.dart';
+import 'package:kazumi/request/apis/laeva_bangumi_api.dart';
 import 'package:dio/dio.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:kazumi/services/storage/storage.dart';
@@ -61,10 +63,7 @@ class _AsyncSession {
 }
 
 class VideoEpisodeSelection {
-  const VideoEpisodeSelection({
-    required this.episode,
-    required this.road,
-  });
+  const VideoEpisodeSelection({required this.episode, required this.road});
 
   final int episode;
   final int road;
@@ -99,8 +98,10 @@ abstract class _VideoPageController with Store {
   String? errorMessage;
 
   @observable
-  VideoEpisodeSelection selectedEpisode =
-      const VideoEpisodeSelection(episode: 1, road: 0);
+  VideoEpisodeSelection selectedEpisode = const VideoEpisodeSelection(
+    episode: 1,
+    road: 0,
+  );
 
   @observable
   VideoEpisodeSelection? playingEpisode;
@@ -152,6 +153,8 @@ abstract class _VideoPageController with Store {
   var roadList = ObservableList<Road>();
 
   late Plugin currentPlugin;
+  LaevaBangumiDetail? laevaBangumiDetail;
+  bool _isLaevaSource = false;
 
   String _offlinePluginName = '';
 
@@ -181,10 +184,13 @@ abstract class _VideoPageController with Store {
     required List<DownloadEpisode> downloadedEpisodes,
   }) {
     this.bangumiItem = bangumiItem;
+    _isLaevaSource = false;
+    laevaBangumiDetail = null;
     _offlinePluginName = pluginName;
     var selectedRoad = road;
-    title =
-        bangumiItem.nameCn.isNotEmpty ? bangumiItem.nameCn : bangumiItem.name;
+    title = bangumiItem.nameCn.isNotEmpty
+        ? bangumiItem.nameCn
+        : bangumiItem.name;
     isOfflineMode = true;
     loading = false;
 
@@ -205,28 +211,83 @@ abstract class _VideoPageController with Store {
     playingEpisode = null;
     commentsEpisode = commentEpisodeForSelection(selected);
     KazumiLogger().i(
-        'VideoPageController: initialized for offline playback, episode $episodeNumber (position: ${selected.episode})');
+      'VideoPageController: initialized for offline playback, episode $episodeNumber (position: ${selected.episode})',
+    );
   }
 
   void _buildOfflineRoadList(List<DownloadEpisode> episodes) {
     roadList.clear();
     episodes.sort((a, b) => a.episodeNumber.compareTo(b.episodeNumber));
-    roadList.add(Road(
-      name: '播放列表1',
-      data: episodes.map((e) => e.episodeNumber.toString()).toList(),
-      identifier: episodes
-          .map((e) =>
-              e.episodeName.isNotEmpty ? e.episodeName : '第${e.episodeNumber}集')
-          .toList(),
-    ));
+    roadList.add(
+      Road(
+        name: '播放列表1',
+        data: episodes.map((e) => e.episodeNumber.toString()).toList(),
+        identifier: episodes
+            .map(
+              (e) => e.episodeName.isNotEmpty
+                  ? e.episodeName
+                  : '第${e.episodeNumber}集',
+            )
+            .toList(),
+      ),
+    );
   }
 
   void resetOfflineMode() {
     isOfflineMode = false;
     _offlinePluginName = '';
+    _isLaevaSource = false;
+    laevaBangumiDetail = null;
   }
 
   String get offlinePluginName => _offlinePluginName;
+
+  bool get isLaevaSource => _isLaevaSource;
+
+  String get sourceName {
+    if (isOfflineMode) {
+      return _offlinePluginName;
+    }
+    if (_isLaevaSource) {
+      return laevaBangumiSourceName;
+    }
+    return currentPlugin.name;
+  }
+
+  String get sourceReferer {
+    if (isOfflineMode || _isLaevaSource) {
+      return '';
+    }
+    return currentPlugin.referer;
+  }
+
+  bool get supportsEpisodeDownload => !isOfflineMode && !_isLaevaSource;
+
+  void initLaevaSource(
+    LaevaBangumiDetail detail, {
+    int episode = 1,
+    int road = 0,
+  }) {
+    laevaBangumiDetail = detail;
+    _isLaevaSource = true;
+    isOfflineMode = false;
+    _offlinePluginName = '';
+    title = detail.title;
+    src = laevaBangumiSourceName;
+    roadList
+      ..clear()
+      ..addAll(detail.toRoads());
+
+    final safeRoad = roadList.isEmpty
+        ? 0
+        : road.clamp(0, roadList.length - 1).toInt();
+    final safeEpisode = roadList.isEmpty
+        ? 1
+        : episode.clamp(1, roadList[safeRoad].data.length).toInt();
+    resetEpisodeState(episode: safeEpisode, road: safeRoad);
+    loading = false;
+    errorMessage = null;
+  }
 
   int get playingActualEpisodeNumber =>
       actualEpisodeNumberForSelection(playbackEpisode);
@@ -238,6 +299,9 @@ abstract class _VideoPageController with Store {
       } catch (_) {
         return selection.episode;
       }
+    }
+    if (_isLaevaSource) {
+      return _laevaEpisodeNumberForSelection(selection);
     }
     return selection.episode;
   }
@@ -300,6 +364,16 @@ abstract class _VideoPageController with Store {
       return;
     }
 
+    if (_isLaevaSource) {
+      await _changeLaevaEpisode(
+        selection,
+        offset,
+        session: session,
+        playerController: playerController,
+      );
+      return;
+    }
+
     String chapterName =
         roadList[selection.road].identifier[selection.episode - 1];
     KazumiLogger().i('VideoPageController: changed to $chapterName');
@@ -324,11 +398,13 @@ abstract class _VideoPageController with Store {
     required _AsyncSession session,
     required PlayerController playerController,
   }) async {
-    final actualEpisodeNumber =
-        int.tryParse(roadList[selection.road].data[selection.episode - 1]);
+    final actualEpisodeNumber = int.tryParse(
+      roadList[selection.road].data[selection.episode - 1],
+    );
     if (actualEpisodeNumber == null) {
       KazumiLogger().e(
-          'VideoPageController: failed to parse episode number from roadList data: ${roadList[selection.road].data[selection.episode - 1]}');
+        'VideoPageController: failed to parse episode number from roadList data: ${roadList[selection.road].data[selection.episode - 1]}',
+      );
       KazumiDialog.showToast(message: '集数解析失败');
       return;
     }
@@ -348,7 +424,8 @@ abstract class _VideoPageController with Store {
     loading = false;
 
     KazumiLogger().i(
-        'VideoPageController: offline episode changed to $actualEpisodeNumber (index: ${selection.episode}), path: $localPath');
+      'VideoPageController: offline episode changed to $actualEpisodeNumber (index: ${selection.episode}), path: $localPath',
+    );
 
     final params = PlaybackInitParams(
       videoUrl: localPath,
@@ -363,70 +440,131 @@ abstract class _VideoPageController with Store {
       referer: '',
       currentRoad: selection.road,
       coverUrl: bangumiItem.images['large'],
-      bangumiName:
-          bangumiItem.nameCn.isNotEmpty ? bangumiItem.nameCn : bangumiItem.name,
+      bangumiName: bangumiItem.nameCn.isNotEmpty
+          ? bangumiItem.nameCn
+          : bangumiItem.name,
     );
 
     final initialized = await playerController.init(params);
     if (session.isActive && initialized) {
       playingEpisode = selection;
-      unawaited(_loadPlaybackDanmaku(playerController, params, session));
+      playerController.danmaku.finishDanmakuLoad(disableDanmaku: true);
     } else if (session.isActive) {
       _playbackSessions.cancel();
     }
   }
 
-  int _danmakuEpisodeForPlayback(PlaybackInitParams params) {
-    try {
-      final episodeFromTitle = extractEpisodeNumber(params.episodeTitle);
-      if (episodeFromTitle != 0) {
-        return episodeFromTitle;
-      }
-    } catch (e) {
-      KazumiLogger().e(
-        'VideoPageController: failed to extract episode number from title',
-        error: e,
-      );
+  int _laevaEpisodeNumberForSelection(VideoEpisodeSelection selection) {
+    final detail = laevaBangumiDetail;
+    if (detail == null ||
+        selection.road < 0 ||
+        selection.road >= detail.channels.length) {
+      return selection.episode;
     }
-    return params.episode;
+    final episodes = detail.channels[selection.road].episodes;
+    final index = selection.episode - 1;
+    if (index < 0 || index >= episodes.length) {
+      return selection.episode;
+    }
+    final episode = episodes[index];
+    final uri = Uri.tryParse(episode.url);
+    final queryEpisode = int.tryParse(uri?.queryParameters['ep'] ?? '');
+    if (queryEpisode != null && queryEpisode > 0) {
+      return queryEpisode;
+    }
+    if (episode.index > 0) {
+      return episode.index;
+    }
+    return selection.episode;
   }
 
-  Future<void> _loadPlaybackDanmaku(
-    PlayerController playerController,
-    PlaybackInitParams params,
-    _AsyncSession session,
-  ) async {
-    final danmakuSession = _danmakuSessions.begin();
-    playerController.danmaku.beginDanmakuLoad();
+  _LaevaPlayRequest _laevaPlayRequestForSelection(
+    VideoEpisodeSelection selection,
+  ) {
+    final detail = laevaBangumiDetail;
+    if (detail == null) {
+      throw const LaevaBangumiApiException('播放详情未初始化');
+    }
+    if (selection.road < 0 || selection.road >= detail.channels.length) {
+      throw const LaevaBangumiApiException('播放线路无效');
+    }
+    final channel = detail.channels[selection.road];
+    final episodeIndex = selection.episode - 1;
+    if (episodeIndex < 0 || episodeIndex >= channel.episodes.length) {
+      throw const LaevaBangumiApiException('剧集不存在');
+    }
+
+    final episode = channel.episodes[episodeIndex];
+    final uri = Uri.tryParse(episode.url);
+    final params = uri?.queryParameters ?? const <String, String>{};
+    return _LaevaPlayRequest(
+      id: int.tryParse(params['id'] ?? '') ?? detail.id,
+      channel: int.tryParse(params['ch'] ?? '') ?? selection.road + 1,
+      episode:
+          int.tryParse(params['ep'] ?? '') ??
+          (episode.index > 0 ? episode.index : selection.episode),
+    );
+  }
+
+  Future<void> _changeLaevaEpisode(
+    VideoEpisodeSelection selection,
+    int offset, {
+    required _AsyncSession session,
+    required PlayerController playerController,
+  }) async {
     try {
-      final result = await playerController.danmaku.fetchDanmaku(
-        params.bangumiId,
-        params.pluginName,
-        _danmakuEpisodeForPlayback(params),
+      final road = roadList[selection.road];
+      final chapterName = road.identifier[selection.episode - 1];
+      KazumiLogger().i('VideoPageController: changed to $chapterName');
+      final request = _laevaPlayRequestForSelection(selection);
+      final playData = await LaevaBangumiApi.getPlayUrl(
+        id: request.id,
+        channel: request.channel,
+        episode: request.episode,
       );
-      if (session.isActive && danmakuSession.isActive) {
-        if (result.hasDanmakus) {
-          final bool enableDanmaku = setting.get(
-            SettingBoxKey.danmakuEnabledByDefault,
-            defaultValue: false,
-          );
-          playerController.danmaku.applyDanmakuLoad(
-            result,
-            enableDanmaku: enableDanmaku,
-          );
-        } else {
-          playerController.danmaku.applyUnavailableDanmakuLoad(result);
-          if (result.isFailed) {
-            KazumiDialog.showToast(message: '弹幕加载失败，可手动检索');
-          }
-        }
+      if (session.isStale) {
+        return;
+      }
+      if (playData == null) {
+        throw const LaevaBangumiApiException('未获取到播放地址');
+      }
+
+      loading = false;
+      final params = PlaybackInitParams(
+        videoUrl: playData.videoUrl,
+        offset: offset,
+        isLocalPlayback: false,
+        bangumiId: bangumiItem.id,
+        pluginName: laevaBangumiSourceName,
+        episode: request.episode,
+        httpHeaders: {'user-agent': getRandomUA()},
+        adBlockerEnabled: false,
+        episodeTitle: chapterName,
+        referer: '',
+        currentRoad: selection.road,
+        coverUrl: bangumiItem.images['large'],
+        bangumiName: bangumiItem.nameCn.isNotEmpty
+            ? bangumiItem.nameCn
+            : bangumiItem.name,
+      );
+
+      final initialized = await playerController.init(params);
+      if (session.isActive && initialized) {
+        playingEpisode = selection;
+        playerController.danmaku.finishDanmakuLoad(disableDanmaku: true);
+      } else if (session.isActive) {
+        _playbackSessions.cancel();
       }
     } catch (e) {
-      if (session.isActive && danmakuSession.isActive) {
-        playerController.danmaku.finishDanmakuLoad(disableDanmaku: true);
-        KazumiDialog.showToast(message: '弹幕加载失败，可手动检索');
+      if (session.isStale) {
+        return;
       }
-      KazumiLogger().w('VideoPageController: failed to load danmaku', error: e);
+      loading = false;
+      errorMessage = '视频加载失败：${e.toString()}';
+      KazumiLogger().e(
+        'VideoPageController: failed to load Laeva episode',
+        error: e,
+      );
     }
   }
 
@@ -435,9 +573,15 @@ abstract class _VideoPageController with Store {
   }
 
   String? _getLocalVideoPath(
-      int bangumiId, String pluginName, int episodeNumber) {
-    final episode =
-        downloadRepository.getEpisode(bangumiId, pluginName, episodeNumber);
+    int bangumiId,
+    String pluginName,
+    int episodeNumber,
+  ) {
+    final episode = downloadRepository.getEpisode(
+      bangumiId,
+      pluginName,
+      episodeNumber,
+    );
     return downloadManager.getLocalVideoPath(episode);
   }
 
@@ -468,11 +612,14 @@ abstract class _VideoPageController with Store {
         return;
       }
       loading = false;
-      KazumiLogger()
-          .i('VideoPageController: resolved video URL: ${source.url}');
+      KazumiLogger().i(
+        'VideoPageController: resolved video URL: ${source.url}',
+      );
 
-      final bool forceAdBlocker =
-          setting.get(SettingBoxKey.forceAdBlocker, defaultValue: false);
+      final bool forceAdBlocker = setting.get(
+        SettingBoxKey.forceAdBlocker,
+        defaultValue: false,
+      );
 
       final params = PlaybackInitParams(
         videoUrl: source.url,
@@ -502,7 +649,7 @@ abstract class _VideoPageController with Store {
       final initialized = await playerController.init(params);
       if (session.isActive && initialized) {
         playingEpisode = selection;
-        unawaited(_loadPlaybackDanmaku(playerController, params, session));
+        playerController.danmaku.finishDanmakuLoad(disableDanmaku: true);
       } else if (session.isActive) {
         _playbackSessions.cancel();
       }
@@ -557,8 +704,9 @@ abstract class _VideoPageController with Store {
     }
     final EpisodeCommentResponse value;
     try {
-      value =
-          await BangumiApi.getBangumiCommentsByEpisodeID(latestEpisodeInfo.id);
+      value = await BangumiApi.getBangumiCommentsByEpisodeID(
+        latestEpisodeInfo.id,
+      );
     } catch (_) {
       if (session.isStale) {
         return false;
@@ -572,20 +720,28 @@ abstract class _VideoPageController with Store {
     episodeInfo = latestEpisodeInfo;
     final commentsList = value.commentList;
     if (!isCommentsAscending) {
-      commentsList
-          .sort((a, b) => b.comment.createdAt.compareTo(a.comment.createdAt));
+      commentsList.sort(
+        (a, b) => b.comment.createdAt.compareTo(a.comment.createdAt),
+      );
     } else {
-      commentsList
-          .sort((a, b) => a.comment.createdAt.compareTo(b.comment.createdAt));
+      commentsList.sort(
+        (a, b) => a.comment.createdAt.compareTo(b.comment.createdAt),
+      );
     }
     episodeCommentsList = ObservableList.of(commentsList);
     KazumiLogger().i(
-        'VideoPageController: loaded comments list length ${episodeCommentsList.length}');
+      'VideoPageController: loaded comments list length ${episodeCommentsList.length}',
+    );
     return true;
   }
 
-  Future<void> queryRoads(String url, String pluginName,
-      {CancelToken? cancelToken}) async {
+  Future<void> queryRoads(
+    String url,
+    String pluginName, {
+    CancelToken? cancelToken,
+  }) async {
+    _isLaevaSource = false;
+    laevaBangumiDetail = null;
     if (cancelToken != null) {
       _queryRoadsCancelToken?.cancel();
       _queryRoadsCancelToken = cancelToken;
@@ -601,13 +757,16 @@ abstract class _VideoPageController with Store {
     for (Plugin plugin in pluginsController.pluginList) {
       if (plugin.name == pluginName) {
         roadList.addAll(
-            await plugin.querychapterRoads(url, cancelToken: cancelToken));
+          await plugin.querychapterRoads(url, cancelToken: cancelToken),
+        );
       }
     }
-    KazumiLogger()
-        .i('VideoPageController: road list length ${roadList.length}');
     KazumiLogger().i(
-        'VideoPageController: first road episode count ${roadList[0].data.length}');
+      'VideoPageController: road list length ${roadList.length}',
+    );
+    KazumiLogger().i(
+      'VideoPageController: first road episode count ${roadList[0].data.length}',
+    );
   }
 
   void toggleSortOrder() {
@@ -650,4 +809,16 @@ abstract class _VideoPageController with Store {
   void handleOnExitFullScreen() async {
     isFullscreen = false;
   }
+}
+
+class _LaevaPlayRequest {
+  const _LaevaPlayRequest({
+    required this.id,
+    required this.channel,
+    required this.episode,
+  });
+
+  final int id;
+  final int channel;
+  final int episode;
 }

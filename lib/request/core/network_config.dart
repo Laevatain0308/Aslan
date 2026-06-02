@@ -1,10 +1,6 @@
 import 'dart:io';
 
 import 'package:dio/io.dart';
-import 'package:hive_ce/hive.dart';
-import 'package:kazumi/services/logging/logger.dart';
-import 'package:kazumi/services/network/proxy_utils.dart';
-import 'package:kazumi/services/storage/storage.dart';
 
 class NetworkConfig {
   const NetworkConfig({
@@ -69,35 +65,10 @@ class NetworkConfig {
     Duration receiveTimeout = const Duration(seconds: 12),
     Duration? sendTimeout,
   }) {
-    final Box setting = GStorage.setting;
-    final bool proxyEnable =
-        setting.get(SettingBoxKey.proxyEnable, defaultValue: false);
-    if (!proxyEnable) {
-      return NetworkConfig(
-        connectTimeout: connectTimeout,
-        receiveTimeout: receiveTimeout,
-        sendTimeout: sendTimeout,
-      );
-    }
-
-    final proxyUrl = setting.get(SettingBoxKey.proxyUrl, defaultValue: '');
-    final parsed = ProxyUtils.parseProxyUrl(proxyUrl);
-    if (parsed == null) {
-      KazumiLogger().w('Proxy: 代理地址格式错误或为空');
-      return NetworkConfig(
-        connectTimeout: connectTimeout,
-        receiveTimeout: receiveTimeout,
-        sendTimeout: sendTimeout,
-      );
-    }
-
     return NetworkConfig(
       connectTimeout: connectTimeout,
       receiveTimeout: receiveTimeout,
       sendTimeout: sendTimeout,
-      proxyHost: parsed.$1,
-      proxyPort: parsed.$2,
-      allowBadCertificates: true,
     );
   }
 }

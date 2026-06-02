@@ -58,63 +58,12 @@ mixin _$InfoController on _InfoController, Store {
     });
   }
 
-  late final _$commentsListAtom =
-      Atom(name: '_InfoController.commentsList', context: context);
-
-  @override
-  ObservableList<CommentItem> get commentsList {
-    _$commentsListAtom.reportRead();
-    return super.commentsList;
-  }
-
-  @override
-  set commentsList(ObservableList<CommentItem> value) {
-    _$commentsListAtom.reportWrite(value, super.commentsList, () {
-      super.commentsList = value;
-    });
-  }
-
-  late final _$characterListAtom =
-      Atom(name: '_InfoController.characterList', context: context);
-
-  @override
-  ObservableList<CharacterItem> get characterList {
-    _$characterListAtom.reportRead();
-    return super.characterList;
-  }
-
-  @override
-  set characterList(ObservableList<CharacterItem> value) {
-    _$characterListAtom.reportWrite(value, super.characterList, () {
-      super.characterList = value;
-    });
-  }
-
-  late final _$staffListAtom =
-      Atom(name: '_InfoController.staffList', context: context);
-
-  @override
-  ObservableList<StaffFullItem> get staffList {
-    _$staffListAtom.reportRead();
-    return super.staffList;
-  }
-
-  @override
-  set staffList(ObservableList<StaffFullItem> value) {
-    _$staffListAtom.reportWrite(value, super.staffList, () {
-      super.staffList = value;
-    });
-  }
-
   @override
   String toString() {
     return '''
 isLoading: ${isLoading},
 pluginSearchResponseList: ${pluginSearchResponseList},
-pluginSearchStatus: ${pluginSearchStatus},
-commentsList: ${commentsList},
-characterList: ${characterList},
-staffList: ${staffList}
+pluginSearchStatus: ${pluginSearchStatus}
     ''';
   }
 }

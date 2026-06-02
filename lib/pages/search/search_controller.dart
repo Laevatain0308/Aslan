@@ -8,8 +8,9 @@ import 'package:kazumi/modules/search/image_search_module.dart';
 import 'package:kazumi/modules/search/search_history_module.dart';
 import 'package:kazumi/repositories/collect_repository.dart';
 import 'package:kazumi/repositories/search_history_repository.dart';
-import 'package:kazumi/request/apis/bangumi_api.dart';
+import 'package:kazumi/request/apis/laeva_bangumi_api.dart';
 import 'package:kazumi/request/apis/trace_api.dart';
+import 'package:kazumi/services/logging/logger.dart';
 import 'package:kazumi/utils/search_parser.dart';
 
 part 'search_controller.g.dart';
@@ -68,7 +69,10 @@ abstract class _SearchPageController with Store {
   }
 
   @action
-  Future<void> searchBangumi(String input, {String type = 'add'}) async {
+  Future<void> searchBangumi(String input, {String type = 'init'}) async {
+    if (type == 'add') {
+      return;
+    }
     if (type != 'add') {
       bangumiList.clear();
       bool privateMode = _collectRepository.getPrivateMode();
@@ -87,28 +91,31 @@ abstract class _SearchPageController with Store {
     }
     isLoading = true;
     isTimeOut = false;
-    SearchParser parser = SearchParser(input);
-    String? idString = parser.parseId();
-    String? tag = parser.parseTag();
-    String? sort = parser.parseSort();
-    String keywords = parser.parseKeywords();
-    if (idString != null) {
-      final id = int.tryParse(idString);
-      if (id != null) {
-        final BangumiItem? item = await BangumiApi.getBangumiInfoByID(id);
-        if (item != null) {
-          bangumiList.add(item);
-        }
+    try {
+      SearchParser parser = SearchParser(input);
+      String keywords = parser.parseKeywords();
+      if (keywords.trim().isEmpty) {
+        keywords = input.trim();
+      }
+      if (keywords.isEmpty) {
+        bangumiList.clear();
         return;
       }
+      final result = await LaevaBangumiApi.search(keywords);
+      bangumiList
+        ..clear()
+        ..addAll(result.map((item) => item.toBangumiItem()));
+    } catch (e, stackTrace) {
+      KazumiLogger().e(
+        'LaevaBangumi: search failed',
+        error: e,
+        stackTrace: stackTrace,
+      );
+      bangumiList.clear();
+    } finally {
+      isLoading = false;
+      isTimeOut = bangumiList.isEmpty;
     }
-    var result = await BangumiApi.bangumiSearch(keywords,
-        tags: [if (tag != null) tag],
-        offset: bangumiList.length,
-        sort: sort ?? 'heat');
-    bangumiList.addAll(result);
-    isLoading = false;
-    isTimeOut = bangumiList.isEmpty;
   }
 
   @action

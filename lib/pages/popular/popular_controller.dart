@@ -1,8 +1,7 @@
-import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:kazumi/request/apis/bangumi_api.dart';
 import 'package:kazumi/modules/bangumi/bangumi_item.dart';
-import 'package:kazumi/services/storage/storage.dart';
+import 'package:kazumi/request/apis/laeva_bangumi_api.dart';
+import 'package:kazumi/services/logging/logger.dart';
 import 'package:mobx/mobx.dart';
 
 part 'popular_controller.g.dart';
@@ -10,6 +9,8 @@ part 'popular_controller.g.dart';
 class PopularController = _PopularController with _$PopularController;
 
 abstract class _PopularController with Store {
+  static const int _pageSize = 24;
+
   final ScrollController scrollController = ScrollController();
 
   @observable
@@ -29,9 +30,6 @@ abstract class _PopularController with Store {
   @observable
   bool isTimeOut = false;
 
-  bool get _bangumiMirrorEnabled => GStorage.setting
-      .get(SettingBoxKey.enableBangumiProxy, defaultValue: false);
-
   void setCurrentTag(String s) {
     currentTag = s;
   }
@@ -45,32 +43,50 @@ abstract class _PopularController with Store {
       trendList.clear();
     }
     isLoadingMore = true;
-    var result = _bangumiMirrorEnabled
-        ? await BangumiApi.getBangumiMirrorPopularSubjects(
-            offset: trendList.length)
-        : await BangumiApi.getBangumiTrendsList(offset: trendList.length);
-    trendList.addAll(result);
-    isLoadingMore = false;
-    isTimeOut = trendList.isEmpty;
+    isTimeOut = false;
+    try {
+      final result = await LaevaBangumiApi.getUpdates(
+        limit: trendList.length + _pageSize,
+      );
+      trendList
+        ..clear()
+        ..addAll(result.map((item) => item.toBangumiItem()));
+    } catch (e, stackTrace) {
+      KazumiLogger().e(
+        'LaevaBangumi: resolve updates failed',
+        error: e,
+        stackTrace: stackTrace,
+      );
+    } finally {
+      isLoadingMore = false;
+      isTimeOut = trendList.isEmpty;
+    }
   }
 
   Future<void> queryBangumiByTag({String type = 'add'}) async {
+    if (type == 'add' && bangumiList.isNotEmpty) {
+      return;
+    }
     if (type == 'init') {
       bangumiList.clear();
     }
     isLoadingMore = true;
+    isTimeOut = false;
     var tag = currentTag;
-    var result = _bangumiMirrorEnabled
-        ? await BangumiApi.getBangumiMirrorPopularSubjects(
-            tag: tag,
-            offset: bangumiList.length,
-          )
-        : await BangumiApi.getBangumiList(
-            rank: Random().nextInt(8000) + 1,
-            tag: tag,
-          );
-    bangumiList.addAll(result);
-    isLoadingMore = false;
-    isTimeOut = bangumiList.isEmpty;
+    try {
+      final result = await LaevaBangumiApi.search(tag);
+      bangumiList
+        ..clear()
+        ..addAll(result.map((item) => item.toBangumiItem()));
+    } catch (e, stackTrace) {
+      KazumiLogger().e(
+        'LaevaBangumi: resolve tag search failed',
+        error: e,
+        stackTrace: stackTrace,
+      );
+    } finally {
+      isLoadingMore = false;
+      isTimeOut = bangumiList.isEmpty;
+    }
   }
 }

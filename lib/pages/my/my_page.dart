@@ -28,8 +28,10 @@ class _MyPageState extends State<MyPage> {
   @override
   void initState() {
     super.initState();
-    navigationBarState =
-        Provider.of<NavigationBarState>(context, listen: false);
+    navigationBarState = Provider.of<NavigationBarState>(
+      context,
+      listen: false,
+    );
   }
 
   @override
@@ -57,8 +59,10 @@ class _MyPageState extends State<MyPage> {
                   },
                   leading: const Icon(Icons.history_rounded),
                   title: Text('历史记录', style: TextStyle(fontFamily: fontFamily)),
-                  description: Text('查看播放历史记录',
-                      style: TextStyle(fontFamily: fontFamily)),
+                  description: Text(
+                    '查看播放历史记录',
+                    style: TextStyle(fontFamily: fontFamily),
+                  ),
                 ),
                 SettingsTile.navigation(
                   onPressed: (_) {
@@ -66,8 +70,10 @@ class _MyPageState extends State<MyPage> {
                   },
                   leading: const Icon(Icons.download_rounded),
                   title: Text('下载管理', style: TextStyle(fontFamily: fontFamily)),
-                  description: Text('查看和管理离线下载',
-                      style: TextStyle(fontFamily: fontFamily)),
+                  description: Text(
+                    '查看和管理离线下载',
+                    style: TextStyle(fontFamily: fontFamily),
+                  ),
                 ),
                 SettingsTile.navigation(
                   onPressed: (_) {
@@ -75,17 +81,24 @@ class _MyPageState extends State<MyPage> {
                   },
                   leading: const Icon(Icons.settings_rounded),
                   title: Text('下载设置', style: TextStyle(fontFamily: fontFamily)),
-                  description: Text('配置下载并发数等参数',
-                      style: TextStyle(fontFamily: fontFamily)),
+                  description: Text(
+                    '配置下载并发数等参数',
+                    style: TextStyle(fontFamily: fontFamily),
+                  ),
                 ),
                 SettingsTile.navigation(
                   onPressed: (_) {
-                    Modular.to.pushNamed('/settings/plugin/');
+                    Modular.to.pushNamed('/settings/server');
                   },
-                  leading: const Icon(Icons.extension),
-                  title: Text('规则管理', style: TextStyle(fontFamily: fontFamily)),
-                  description: Text('管理番剧资源规则',
-                      style: TextStyle(fontFamily: fontFamily)),
+                  leading: const Icon(Icons.dns_rounded),
+                  title: Text(
+                    '服务器地址',
+                    style: TextStyle(fontFamily: fontFamily),
+                  ),
+                  description: Text(
+                    '配置 LaevaBangumi API 地址',
+                    style: TextStyle(fontFamily: fontFamily),
+                  ),
                 ),
               ],
             ),
@@ -98,17 +111,10 @@ class _MyPageState extends State<MyPage> {
                   },
                   leading: const Icon(Icons.display_settings_rounded),
                   title: Text('播放设置', style: TextStyle(fontFamily: fontFamily)),
-                  description: Text('设置播放器相关参数',
-                      style: TextStyle(fontFamily: fontFamily)),
-                ),
-                SettingsTile.navigation(
-                  onPressed: (_) {
-                    Modular.to.pushNamed('/settings/danmaku/');
-                  },
-                  leading: const Icon(Icons.subtitles_rounded),
-                  title: Text('弹幕设置', style: TextStyle(fontFamily: fontFamily)),
-                  description: Text('设置弹幕相关参数',
-                      style: TextStyle(fontFamily: fontFamily)),
+                  description: Text(
+                    '设置播放器相关参数',
+                    style: TextStyle(fontFamily: fontFamily),
+                  ),
                 ),
                 SettingsTile.navigation(
                   onPressed: (_) {
@@ -116,17 +122,10 @@ class _MyPageState extends State<MyPage> {
                   },
                   leading: const Icon(Icons.keyboard_rounded),
                   title: Text('操作设置', style: TextStyle(fontFamily: fontFamily)),
-                  description: Text('设置播放器按键映射',
-                      style: TextStyle(fontFamily: fontFamily)),
-                ),
-                SettingsTile.navigation(
-                  onPressed: (_) {
-                    Modular.to.pushNamed('/settings/proxy');
-                  },
-                  leading: const Icon(Icons.vpn_key_rounded),
-                  title: Text('代理设置', style: TextStyle(fontFamily: fontFamily)),
-                  description: Text('配置HTTP代理',
-                      style: TextStyle(fontFamily: fontFamily)),
+                  description: Text(
+                    '设置播放器按键映射',
+                    style: TextStyle(fontFamily: fontFamily),
+                  ),
                 ),
               ],
             ),
@@ -139,8 +138,10 @@ class _MyPageState extends State<MyPage> {
                   },
                   leading: const Icon(Icons.palette_rounded),
                   title: Text('外观设置', style: TextStyle(fontFamily: fontFamily)),
-                  description: Text('设置应用主题和刷新率',
-                      style: TextStyle(fontFamily: fontFamily)),
+                  description: Text(
+                    '设置应用主题和刷新率',
+                    style: TextStyle(fontFamily: fontFamily),
+                  ),
                 ),
                 SettingsTile.navigation(
                   onPressed: (_) {
@@ -148,8 +149,10 @@ class _MyPageState extends State<MyPage> {
                   },
                   leading: const Icon(Icons.pages_rounded),
                   title: Text('界面设置', style: TextStyle(fontFamily: fontFamily)),
-                  description: Text('设置应用界面样式',
-                      style: TextStyle(fontFamily: fontFamily)),
+                  description: Text(
+                    '设置应用界面样式',
+                    style: TextStyle(fontFamily: fontFamily),
+                  ),
                 ),
                 SettingsTile.navigation(
                   onPressed: (_) {
@@ -157,8 +160,10 @@ class _MyPageState extends State<MyPage> {
                   },
                   leading: const Icon(Icons.cloud),
                   title: Text('同步设置', style: TextStyle(fontFamily: fontFamily)),
-                  description:
-                      Text('设置同步参数', style: TextStyle(fontFamily: fontFamily)),
+                  description: Text(
+                    '设置同步参数',
+                    style: TextStyle(fontFamily: fontFamily),
+                  ),
                 ),
               ],
             ),

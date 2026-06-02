@@ -1,0 +1,85 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:kazumi/modules/laeva/laeva_bangumi_models.dart';
+import 'package:kazumi/request/config/api_endpoints.dart';
+
+void main() {
+  group('LaevaBangumi', () {
+    test('uses the www.laevatain.top API as the default server', () {
+      expect(
+        ApiEndpoints.laevaBangumiDefaultApiBase,
+        'https://www.laevatain.top/anime/api',
+      );
+    });
+
+    test('uses the search result id as the Bangumi subject id', () {
+      final item = LaevaBangumiSearchItem.fromJson({
+        'id': 456079,
+        'bangumiId': 999999,
+        'title': '和班上第二可爱的女孩成为朋友',
+        'coverUrl': 'https://img.laevatain.top/cover/456079.jpg',
+      });
+
+      final bangumiItem = item.toBangumiItem();
+
+      expect(item.id, 456079);
+      expect(bangumiItem.id, 456079);
+      expect(LaevaBangumiMetadata.apiIdFromItem(bangumiItem), 456079);
+    });
+
+    test('maps update items to Bangumi cards for home page', () {
+      final item = LaevaBangumiUpdateItem.fromJson({
+        'id': 580133,
+        'title': '欺诈游戏',
+        'coverUrl': 'https://img.laevatain.top/cover/580133.jpg',
+        'summary': '突然届けられた1億円と謎の招待状',
+        'latestEp': 9,
+        'latestEpisode': '更新至第09集',
+        'updatedAt': '2026-06-01T16:43:24.000Z',
+      });
+
+      final bangumiItem = item.toBangumiItem();
+
+      expect(item.id, 580133);
+      expect(item.latestEpisode, '更新至第09集');
+      expect(bangumiItem.id, 580133);
+      expect(bangumiItem.nameCn, '欺诈游戏');
+      expect(bangumiItem.summary, '突然届けられた1億円と謎の招待状');
+      expect(LaevaBangumiMetadata.apiIdFromItem(bangumiItem), 580133);
+    });
+
+    test('maps calendar days to Laeva Bangumi timeline items', () {
+      final day = LaevaBangumiCalendarDay.fromJson({
+        'weekday': {
+          'en': 'Tue',
+          'cn': '星期二',
+          'ja': '火曜日',
+          'id': 2,
+        },
+        'items': [
+          {
+            'id': 377130,
+            'title': '尖帽子的魔法工房',
+            'coverUrl': 'https://img.laevatain.top/cover/377130.jpg',
+            'ratingScore': 7.6,
+            'eps': 12,
+            'totalEpisodes': 12,
+            'latestEp': 10,
+            'lastUpdated': '2026-06-01T14:57:08.000Z',
+            'airDate': '2026-04-01',
+          },
+        ],
+      });
+
+      final bangumiItems = day.toBangumiItems();
+
+      expect(day.weekdayId, 2);
+      expect(bangumiItems, hasLength(1));
+      expect(bangumiItems.single.id, 377130);
+      expect(bangumiItems.single.airWeekday, 2);
+      expect(bangumiItems.single.ratingScore, 7.6);
+      expect(bangumiItems.single.summary, '更新至第10集');
+      expect(LaevaBangumiMetadata.isLaevaItem(bangumiItems.single), isTrue);
+      expect(LaevaBangumiMetadata.apiIdFromItem(bangumiItems.single), 377130);
+    });
+  });
+}

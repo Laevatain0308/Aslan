@@ -32,24 +32,6 @@ class _CollectPageState extends State<CollectPage>
   bool syncCollectiblesing = false;
   Box setting = GStorage.setting;
 
-  Future<bool> _syncBangumiWithProgress({
-    required GlobalKey<_FullSyncProgressDialogState> progressDialogKey,
-  }) async {
-    progressDialogKey.currentState?.update('准备同步 Bangumi 收藏...', null);
-
-    await Future<void>.delayed(const Duration(milliseconds: 80));
-
-    return collectController.syncCollectiblesBangumi(
-      showSuccessToast: false,
-      onProgress: (message, current, total) {
-        progressDialogKey.currentState?.update(
-          total > 0 ? '$message ($current/$total)' : message,
-          total > 0 ? (current / total).clamp(0.0, 1.0).toDouble() : null,
-        );
-      },
-    );
-  }
-
   void _showFullSyncProgressDialog({
     required GlobalKey<_FullSyncProgressDialogState> progressDialogKey,
   }) {
@@ -62,21 +44,10 @@ class _CollectPageState extends State<CollectPage>
   String _buildFullSyncSummary({
     required CollectSyncPlan plan,
     required bool webDavSynced,
-    required bool bangumiSynced,
-    required bool webDavUploaded,
   }) {
     final List<String> states = [];
     if (plan.shouldSyncWebDavCollectibles) {
       states.add(webDavSynced ? 'WebDav 已同步' : 'WebDav 未完成');
-    }
-    if (plan.shouldSyncBangumi) {
-      states.add(bangumiSynced ? 'Bangumi 已同步' : 'Bangumi 未完成');
-    }
-    if (plan.shouldSyncWebDavCollectibles &&
-        plan.shouldSyncBangumi &&
-        webDavSynced &&
-        bangumiSynced) {
-      states.add(webDavUploaded ? 'WebDav 已回传最新数据' : 'WebDav 未回传最新数据');
     }
     return states.join('，');
   }
@@ -93,30 +64,12 @@ class _CollectPageState extends State<CollectPage>
     await Future<void>.delayed(const Duration(milliseconds: 80));
 
     bool webDavSynced = false;
-    bool bangumiSynced = false;
-    bool webDavUploaded = false;
 
     try {
       if (plan.shouldSyncWebDavCollectibles) {
         progressDialogKey.currentState?.update('正在同步 WebDav 收藏...', null);
         webDavSynced =
             await collectController.syncCollectibles(showSuccessToast: false);
-      }
-
-      if (plan.shouldSyncBangumi) {
-        bangumiSynced = await _syncBangumiWithProgress(
-          progressDialogKey: progressDialogKey,
-        );
-      }
-
-      if (plan.shouldUploadWebDavAfterBangumi(
-        webDavSynced: webDavSynced,
-        bangumiSynced: bangumiSynced,
-      )) {
-        progressDialogKey.currentState?.update('正在回传最新收藏到 WebDav...', null);
-        webDavUploaded = await collectController.uploadCollectiblesToWebDav(
-          showSuccessToast: false,
-        );
       }
     } finally {
       if (KazumiDialog.observer.hasKazumiDialog) {
@@ -128,8 +81,6 @@ class _CollectPageState extends State<CollectPage>
       message: _buildFullSyncSummary(
         plan: plan,
         webDavSynced: webDavSynced,
-        bangumiSynced: bangumiSynced,
-        webDavUploaded: webDavUploaded,
       ),
     );
   }
@@ -210,12 +161,10 @@ class _CollectPageState extends State<CollectPage>
                 defaultValue: false);
             bool webDavCollectEnable = await setting
                 .get(SettingBoxKey.webDavEnableCollect, defaultValue: false);
-            bool bgmSyncEnable = await setting
-                .get(SettingBoxKey.bangumiSyncEnable, defaultValue: false);
             final syncPlan = CollectSyncPlan(
               webDavEnabled: webDavenable,
               webDavCollectiblesEnabled: webDavCollectEnable,
-              bangumiEnabled: bgmSyncEnable,
+              bangumiEnabled: false,
             );
             if (!syncPlan.canSync) {
               KazumiDialog.showToast(message: '同步功能不可用，请至少开启一个同步功能');

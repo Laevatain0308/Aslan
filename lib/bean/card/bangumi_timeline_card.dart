@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 import 'package:kazumi/modules/bangumi/bangumi_item.dart';
+import 'package:kazumi/modules/laeva/laeva_bangumi_models.dart';
 import 'package:kazumi/bean/card/network_img_layer.dart';
 import 'package:kazumi/utils/device.dart';
 
@@ -114,9 +115,11 @@ class BangumiTimelineCard extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     final title =
         bangumiItem.nameCn.isNotEmpty ? bangumiItem.nameCn : bangumiItem.name;
-    final supportingText = bangumiItem.info.trim().isNotEmpty
-        ? bangumiItem.info.trim()
-        : bangumiItem.summary.trim();
+    final rawInfo = LaevaBangumiMetadata.isLaevaItem(bangumiItem)
+        ? ''
+        : bangumiItem.info.trim();
+    final supportingText =
+        rawInfo.isNotEmpty ? rawInfo : bangumiItem.summary.trim();
     final bool useWideLayout = isDesktop || isTablet;
     final int supportingLines = useWideLayout ? 3 : 2;
     final nameStyle = theme.textTheme.titleSmall?.copyWith(

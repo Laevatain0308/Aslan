@@ -185,15 +185,6 @@ class _AboutPageState extends State<AboutPage> {
                 ),
                 SettingsTile.navigation(
                   onPressed: (_) {
-                    launchUrl(Uri.parse(ApiEndpoints.bangumiIndex),
-                        mode: LaunchMode.externalApplication);
-                  },
-                  title: Text('番剧索引', style: TextStyle(fontFamily: fontFamily)),
-                  value:
-                      Text('Bangumi', style: TextStyle(fontFamily: fontFamily)),
-                ),
-                SettingsTile.navigation(
-                  onPressed: (_) {
                     launchUrl(Uri.parse('https://trace.moe'),
                         mode: LaunchMode.externalApplication);
                   },

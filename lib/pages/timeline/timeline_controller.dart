@@ -1,10 +1,9 @@
 import 'package:flutter_modular/flutter_modular.dart';
 import 'package:kazumi/modules/bangumi/bangumi_item.dart';
-import 'package:kazumi/request/apis/bangumi_api.dart';
-import 'package:kazumi/utils/anime_season.dart';
+import 'package:kazumi/request/apis/laeva_bangumi_api.dart';
 import 'package:kazumi/repositories/collect_repository.dart';
 import 'package:kazumi/modules/collect/collect_type.dart';
-import 'package:kazumi/services/storage/storage.dart';
+import 'package:kazumi/services/logging/logger.dart';
 import 'package:mobx/mobx.dart';
 
 part 'timeline_controller.g.dart';
@@ -39,16 +38,13 @@ abstract class _TimelineController with Store {
   late bool onlyShowWatchingBangumis =
       _collectRepository.getTimelineOnlyShowWatchingBangumis();
 
-  int sortType = 3;
+  int sortType = 1;
 
   late DateTime selectedDate;
 
-  bool get _bangumiMirrorEnabled => GStorage.setting
-      .get(SettingBoxKey.enableBangumiProxy, defaultValue: false);
-
   void init() {
     selectedDate = DateTime.now();
-    seasonString = AnimeSeason(selectedDate).toString();
+    seasonString = '本周放送';
     getSchedules();
   }
 
@@ -56,64 +52,25 @@ abstract class _TimelineController with Store {
     isLoading = true;
     isTimeOut = false;
     bangumiCalendar.clear();
-    final resBangumiCalendar = await BangumiApi.getCalendar();
-    bangumiCalendar.clear();
-    bangumiCalendar.addAll(resBangumiCalendar);
-    changeSortType(sortType);
-    isLoading = false;
-    isTimeOut = bangumiCalendar.isEmpty;
-  }
-
-  Future<void> getSchedulesBySeason() async {
-    if (_bangumiMirrorEnabled) {
-      isLoading = true;
-      isTimeOut = false;
-      bangumiCalendar.clear();
-      final resBangumiCalendar =
-          await BangumiApi.getBangumiMirrorSeasonCalendar(
-              AnimeSeason(selectedDate).toSeasonStartAndEnd());
+    try {
+      final resBangumiCalendar = await LaevaBangumiApi.getCalendar();
       bangumiCalendar.clear();
       bangumiCalendar.addAll(resBangumiCalendar);
-      isLoading = false;
-      isTimeOut = bangumiCalendar.every((innerList) => innerList.isEmpty);
+      isTimeOut = bangumiCalendar.isEmpty ||
+          bangumiCalendar.every((list) => list.isEmpty);
       if (!isTimeOut) {
         changeSortType(sortType);
       }
-      return;
-    }
-
-    // 4次获取，每次最多20部
-    isLoading = true;
-    isTimeOut = false;
-    bangumiCalendar.clear();
-    var time = 0;
-    const maxTime = 4;
-    const limit = 20;
-    var resBangumiCalendar = List.generate(7, (_) => <BangumiItem>[]);
-    for (time = 0; time < maxTime; time++) {
-      final offset = time * limit;
-      var newList = await BangumiApi.getCalendarBySearch(
-          AnimeSeason(selectedDate).toSeasonStartAndEnd(), limit, offset);
-      for (int i = 0; i < resBangumiCalendar.length; ++i) {
-        resBangumiCalendar[i].addAll(newList[i]);
-      }
-      bangumiCalendar.clear();
-      bangumiCalendar.addAll(resBangumiCalendar);
-    }
-    isLoading = false;
-    if (bangumiCalendar.isEmpty) {
+    } catch (e, stackTrace) {
+      KazumiLogger().e(
+        'LaevaBangumi: resolve calendar failed',
+        error: e,
+        stackTrace: stackTrace,
+      );
       isTimeOut = true;
-    } else {
-      isTimeOut = bangumiCalendar.every((innerList) => innerList.isEmpty);
+    } finally {
+      isLoading = false;
     }
-    if (!isTimeOut) {
-      changeSortType(sortType);
-    }
-  }
-
-  void tryEnterSeason(DateTime date) {
-    selectedDate = date;
-    seasonString = "加载中 ٩(◦`꒳´◦)۶";
   }
 
   /// 排序方式

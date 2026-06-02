@@ -10,7 +10,6 @@ import 'package:kazumi/pages/player/controller/player_debug_controller.dart';
 import 'package:kazumi/services/shaders/shader_asset_service.dart';
 import 'package:kazumi/utils/constants.dart';
 import 'package:kazumi/services/logging/logger.dart';
-import 'package:kazumi/services/network/proxy_utils.dart';
 import 'package:kazumi/services/player/player_screenshot_service.dart';
 import 'package:kazumi/services/storage/storage.dart';
 import 'package:media_kit/media_kit.dart';
@@ -166,20 +165,32 @@ abstract class _PlayerPlaybackController with Store {
   }
 
   Future<Player?> createVideoController(
-      Map<String, String> httpHeaders, bool adBlockerEnabled,
-      {int offset = 0}) async {
-    superResolutionType =
-        setting.get(SettingBoxKey.defaultSuperResolutionType, defaultValue: 1);
+    Map<String, String> httpHeaders,
+    bool adBlockerEnabled, {
+    int offset = 0,
+  }) async {
+    superResolutionType = setting.get(
+      SettingBoxKey.defaultSuperResolutionType,
+      defaultValue: 1,
+    );
     hAenable = setting.get(SettingBoxKey.hAenable, defaultValue: true);
-    androidEnableOpenSLES =
-        setting.get(SettingBoxKey.androidEnableOpenSLES, defaultValue: true);
-    hardwareDecoder =
-        setting.get(SettingBoxKey.hardwareDecoder, defaultValue: 'auto-safe');
+    androidEnableOpenSLES = setting.get(
+      SettingBoxKey.androidEnableOpenSLES,
+      defaultValue: true,
+    );
+    hardwareDecoder = setting.get(
+      SettingBoxKey.hardwareDecoder,
+      defaultValue: 'auto-safe',
+    );
     autoPlay = setting.get(SettingBoxKey.autoPlay, defaultValue: true);
-    lowMemoryMode =
-        setting.get(SettingBoxKey.lowMemoryMode, defaultValue: false);
-    playerDebugMode =
-        setting.get(SettingBoxKey.playerDebugMode, defaultValue: false);
+    lowMemoryMode = setting.get(
+      SettingBoxKey.lowMemoryMode,
+      defaultValue: false,
+    );
+    playerDebugMode = setting.get(
+      SettingBoxKey.playerDebugMode,
+      defaultValue: false,
+    );
 
     final Player player = Player(
       configuration: PlayerConfiguration(
@@ -228,32 +239,17 @@ abstract class _PlayerPlaybackController with Store {
       }
     }
 
-    final bool proxyEnable =
-        setting.get(SettingBoxKey.proxyEnable, defaultValue: false);
-    if (proxyEnable) {
-      final String proxyUrl =
-          setting.get(SettingBoxKey.proxyUrl, defaultValue: '');
-      final formattedProxy = ProxyUtils.getFormattedProxyUrl(proxyUrl);
-      if (formattedProxy != null) {
-        await pp.setProperty("http-proxy", formattedProxy);
-        if (!isCurrentPlayer(player)) {
-          return await _discardIfNotCurrent(player);
-        }
-        KazumiLogger().i('Player: HTTP 代理设置成功 $formattedProxy');
-      }
-    }
-
-    await player.setAudioTrack(
-      AudioTrack.auto(),
-    );
+    await player.setAudioTrack(AudioTrack.auto());
     if (!isCurrentPlayer(player)) {
       return await _discardIfNotCurrent(player);
     }
 
     String? videoRenderer;
     if (Platform.isAndroid) {
-      final String androidVideoRenderer =
-          setting.get(SettingBoxKey.androidVideoRenderer, defaultValue: 'auto');
+      final String androidVideoRenderer = setting.get(
+        SettingBoxKey.androidVideoRenderer,
+        defaultValue: 'auto',
+      );
 
       if (androidVideoRenderer == 'auto') {
         // Android 14 及以上使用基于 Vulkan 的 MPV GPU-NEXT 视频输出，着色器性能更好
@@ -294,8 +290,10 @@ abstract class _PlayerPlaybackController with Store {
       return await _discardIfNotCurrent(player);
     }
 
-    bool showPlayerError =
-        setting.get(SettingBoxKey.showPlayerError, defaultValue: true);
+    bool showPlayerError = setting.get(
+      SettingBoxKey.showPlayerError,
+      defaultValue: true,
+    );
     player.stream.error.listen((event) {
       if (showPlayerError) {
         if (!isCurrentPlayer(player)) {
@@ -303,16 +301,21 @@ abstract class _PlayerPlaybackController with Store {
         }
         if (event.toString().contains('Failed to open') && playerBuffering) {
           KazumiDialog.showToast(
-              message: '加载失败, 请尝试更换其他视频来源', showActionButton: true);
+            message: '加载失败, 请尝试更换其他视频来源',
+            showActionButton: true,
+          );
         } else {
           KazumiDialog.showToast(
-              message: '播放器内部错误 ${event.toString()} ${videoUrl()}',
-              duration: const Duration(seconds: 5),
-              showActionButton: true);
+            message: '播放器内部错误 ${event.toString()} ${videoUrl()}',
+            duration: const Duration(seconds: 5),
+            showActionButton: true,
+          );
         }
       }
-      KazumiLogger().e('PlayerController: Player intent error ${videoUrl()}',
-          error: event);
+      KazumiLogger().e(
+        'PlayerController: Player intent error ${videoUrl()}',
+        error: event,
+      );
     });
 
     if (superResolutionType != 1) {
@@ -323,8 +326,11 @@ abstract class _PlayerPlaybackController with Store {
     }
 
     await player.open(
-      Media(videoUrl(),
-          start: Duration(seconds: offset), httpHeaders: httpHeaders),
+      Media(
+        videoUrl(),
+        start: Duration(seconds: offset),
+        httpHeaders: httpHeaders,
+      ),
       play: autoPlay,
     );
     if (!isCurrentPlayer(player)) {
@@ -334,8 +340,11 @@ abstract class _PlayerPlaybackController with Store {
     return player;
   }
 
-  Future<void> setShader(int type,
-      {bool synchronized = true, Player? player}) async {
+  Future<void> setShader(
+    int type, {
+    bool synchronized = true,
+    Player? player,
+  }) async {
     final currentPlayer = player ?? mediaPlayer;
     if (currentPlayer == null) return;
     try {
@@ -351,7 +360,9 @@ abstract class _PlayerPlaybackController with Store {
           'glsl-shaders',
           'set',
           buildShadersAbsolutePath(
-              shaderAssetService.shadersDirectory.path, mpvAnime4KShadersLite),
+            shaderAssetService.shadersDirectory.path,
+            mpvAnime4KShadersLite,
+          ),
         ]);
         superResolutionType = 2;
         return;
@@ -362,7 +373,9 @@ abstract class _PlayerPlaybackController with Store {
           'glsl-shaders',
           'set',
           buildShadersAbsolutePath(
-              shaderAssetService.shadersDirectory.path, mpvAnime4KShaders),
+            shaderAssetService.shadersDirectory.path,
+            mpvAnime4KShaders,
+          ),
         ]);
         superResolutionType = 3;
         return;
@@ -379,8 +392,10 @@ abstract class _PlayerPlaybackController with Store {
     try {
       mediaPlayer!.setRate(playerSpeed);
     } catch (e) {
-      KazumiLogger()
-          .e('PlayerController: failed to set playback speed', error: e);
+      KazumiLogger().e(
+        'PlayerController: failed to set playback speed',
+        error: e,
+      );
     }
   }
 
@@ -464,9 +479,7 @@ abstract class _PlayerPlaybackController with Store {
     }
   }
 
-  Future<void> dispose({
-    bool disposeSyncPlayController = true,
-  }) async {
+  Future<void> dispose({bool disposeSyncPlayController = true}) async {
     final player = mediaPlayer;
     mediaPlayer = null;
     videoController = null;
