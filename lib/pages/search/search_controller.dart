@@ -4,6 +4,7 @@ import 'package:flutter_modular/flutter_modular.dart';
 import 'package:mobx/mobx.dart';
 import 'package:kazumi/modules/bangumi/bangumi_item.dart';
 import 'package:kazumi/modules/collect/collect_type.dart';
+import 'package:kazumi/modules/laeva/laeva_bangumi_sort.dart';
 import 'package:kazumi/modules/search/image_search_module.dart';
 import 'package:kazumi/modules/search/search_history_module.dart';
 import 'package:kazumi/repositories/collect_repository.dart';
@@ -57,15 +58,21 @@ abstract class _SearchPageController with Store {
     searchHistories.addAll(histories);
   }
 
-  /// Avaliable sort parameters:
+  /// Available sort parameters:
   /// 1. heat
-  /// 2. match
-  /// 3. rank
-  /// 4. score
+  /// 2. rank/score
+  /// 3. time
   String attachSortParams(String input, String sort) {
     SearchParser parser = SearchParser(input);
     String newInput = parser.updateSort(sort);
     return newInput;
+  }
+
+  List<BangumiItem> sortSearchResults(
+    Iterable<BangumiItem> items,
+    String? sort,
+  ) {
+    return sortLaevaBangumiItems(items, sort: sort ?? 'time');
   }
 
   @action
@@ -94,12 +101,17 @@ abstract class _SearchPageController with Store {
     try {
       SearchParser parser = SearchParser(input);
       final tag = parser.parseTag();
+      final sort = parser.parseSort();
       if (tag != null && tag.trim().isNotEmpty) {
         final result =
             (await LaevaBangumiApi.search(tag.trim(), byTag: true)).data;
+        final sorted = sortSearchResults(
+          result.map((item) => item.toBangumiItem()),
+          sort,
+        );
         bangumiList
           ..clear()
-          ..addAll(result.map((item) => item.toBangumiItem()));
+          ..addAll(sorted);
         return;
       }
       String keywords = parser.parseKeywords();
@@ -111,9 +123,13 @@ abstract class _SearchPageController with Store {
         return;
       }
       final result = (await LaevaBangumiApi.search(keywords)).data;
+      final sorted = sortSearchResults(
+        result.map((item) => item.toBangumiItem()),
+        sort,
+      );
       bangumiList
         ..clear()
-        ..addAll(result.map((item) => item.toBangumiItem()));
+        ..addAll(sorted);
     } catch (e, stackTrace) {
       KazumiLogger().e(
         'LaevaBangumi: search failed',

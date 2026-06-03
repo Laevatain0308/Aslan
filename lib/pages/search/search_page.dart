@@ -113,6 +113,16 @@ class _SearchPageState extends State<SearchPage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
+              title: const Text('按时间排序'),
+              onTap: () {
+                Navigator.pop(context);
+                searchController.text = searchPageController.attachSortParams(
+                    searchController.text, 'time');
+                searchPageController.searchBangumi(searchController.text,
+                    type: 'init');
+              },
+            ),
+            ListTile(
               title: const Text('按热度排序'),
               onTap: () {
                 Navigator.pop(context);
@@ -127,17 +137,7 @@ class _SearchPageState extends State<SearchPage> {
               onTap: () {
                 Navigator.pop(context);
                 searchController.text = searchPageController.attachSortParams(
-                    searchController.text, 'rank');
-                searchPageController.searchBangumi(searchController.text,
-                    type: 'init');
-              },
-            ),
-            ListTile(
-              title: const Text('按匹配程度排序'),
-              onTap: () {
-                Navigator.pop(context);
-                searchController.text = searchPageController.attachSortParams(
-                    searchController.text, 'match');
+                    searchController.text, 'score');
                 searchPageController.searchBangumi(searchController.text,
                     type: 'init');
               },

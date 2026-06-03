@@ -1,5 +1,6 @@
 import 'package:flutter_modular/flutter_modular.dart';
 import 'package:kazumi/modules/bangumi/bangumi_item.dart';
+import 'package:kazumi/modules/laeva/laeva_bangumi_sort.dart';
 import 'package:kazumi/request/apis/laeva_bangumi_api.dart';
 import 'package:kazumi/repositories/collect_repository.dart';
 import 'package:kazumi/modules/collect/collect_type.dart';
@@ -74,7 +75,7 @@ abstract class _TimelineController with Store {
   }
 
   /// 排序方式
-  /// 1. default
+  /// 1. time
   /// 2. score
   /// 3. heat
   void changeSortType(int type) {
@@ -84,18 +85,22 @@ abstract class _TimelineController with Store {
     sortType = type;
     var resBangumiCalendar = bangumiCalendar.toList();
     for (var dayList in resBangumiCalendar) {
+      List<BangumiItem> sorted = dayList;
       switch (sortType) {
         case 1:
-          dayList.sort((a, b) => a.id.compareTo(b.id));
+          sorted = sortLaevaBangumiItems(dayList, sort: 'time');
           break;
         case 2:
-          dayList.sort((a, b) => (b.ratingScore).compareTo(a.ratingScore));
+          sorted = sortLaevaBangumiItems(dayList, sort: 'score');
           break;
         case 3:
-          dayList.sort((a, b) => (b.votes).compareTo(a.votes));
+          sorted = sortLaevaBangumiItems(dayList, sort: 'heat');
           break;
         default:
       }
+      dayList
+        ..clear()
+        ..addAll(sorted);
     }
     bangumiCalendar.clear();
     bangumiCalendar.addAll(resBangumiCalendar);

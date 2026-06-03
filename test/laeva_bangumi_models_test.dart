@@ -42,6 +42,14 @@ void main() {
       expect(item.votesCount, [1, 2, 3]);
       expect(item.tags.single.name, '恋爱');
       expect(bangumiItem.id, 456079);
+      expect(bangumiItem.airDate, '2026-04-01');
+      expect(bangumiItem.airWeekday, 3);
+      expect(bangumiItem.rank, 1234);
+      expect(bangumiItem.summary, '搜索简介');
+      expect(bangumiItem.ratingScore, 7.1);
+      expect(bangumiItem.votes, 420);
+      expect(bangumiItem.votesCount, [1, 2, 3]);
+      expect(bangumiItem.tags.single.name, '恋爱');
       expect(LaevaBangumiMetadata.apiIdFromItem(bangumiItem), 456079);
     });
 
@@ -129,6 +137,9 @@ void main() {
       expect(bangumiItems.single.id, 377130);
       expect(bangumiItems.single.airWeekday, 2);
       expect(bangumiItems.single.ratingScore, 7.6);
+      expect(bangumiItems.single.votes, 300);
+      expect(bangumiItems.single.votesCount, [0, 1, 1]);
+      expect(bangumiItems.single.tags.single.name, '奇幻');
       expect(bangumiItems.single.summary, '更新至第10集');
       expect(day.items.single.name, 'とんがり帽子のアトリエ');
       expect(day.items.single.rank, 900);
