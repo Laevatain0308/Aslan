@@ -20,24 +20,120 @@ class LaevaBangumiMetadata {
   }
 }
 
+class LaevaBangumiSubjectCardFields {
+  LaevaBangumiSubjectCardFields({
+    required this.id,
+    required this.title,
+    required this.name,
+    required this.nameCn,
+    required this.summary,
+    required this.airDate,
+    required this.airWeekday,
+    required this.platform,
+    required this.eps,
+    required this.totalEpisodes,
+    required this.ratingScore,
+    required this.rank,
+    required this.votes,
+    required this.votesCount,
+    required this.tags,
+  });
+
+  factory LaevaBangumiSubjectCardFields.fromJson(Map<String, dynamic> json) {
+    return LaevaBangumiSubjectCardFields(
+      id: _parseInt(json['id']) ?? 0,
+      title: _string(json['title']),
+      name: _nullableString(json['name']),
+      nameCn: _nullableString(json['nameCn']),
+      summary: _nullableString(json['summary']),
+      airDate: _nullableString(json['airDate']),
+      airWeekday: _parseInt(json['airWeekday']),
+      platform: _nullableString(json['platform']),
+      eps: _parseInt(json['eps']),
+      totalEpisodes: _parseInt(json['totalEpisodes']),
+      ratingScore: _parseDouble(json['ratingScore']),
+      rank: _parseInt(json['rank']),
+      votes: _parseInt(json['votes']) ?? 0,
+      votesCount: _parseVotesCount(json['votesCount']),
+      tags: _parseBangumiTags(json['tags']),
+    );
+  }
+
+  final int id;
+  final String title;
+  final String? name;
+  final String? nameCn;
+  final String? summary;
+  final String? airDate;
+  final int? airWeekday;
+  final String? platform;
+  final int? eps;
+  final int? totalEpisodes;
+  final double? ratingScore;
+  final int? rank;
+  final int votes;
+  final List<int> votesCount;
+  final List<BangumiTag> tags;
+}
+
 class LaevaBangumiSearchItem {
   LaevaBangumiSearchItem({
     required this.id,
     required this.title,
     required this.coverUrl,
+    required this.name,
+    required this.nameCn,
+    required this.summary,
+    required this.airDate,
+    required this.airWeekday,
+    required this.platform,
+    required this.eps,
+    required this.totalEpisodes,
+    required this.ratingScore,
+    required this.rank,
+    required this.votes,
+    required this.votesCount,
+    required this.tags,
   });
 
   factory LaevaBangumiSearchItem.fromJson(Map<String, dynamic> json) {
+    final card = LaevaBangumiSubjectCardFields.fromJson(json);
     return LaevaBangumiSearchItem(
-      id: _parseInt(json['id']) ?? 0,
-      title: _string(json['title']),
+      id: card.id,
+      title: card.title,
       coverUrl: _string(json['coverUrl']),
+      name: card.name,
+      nameCn: card.nameCn,
+      summary: card.summary,
+      airDate: card.airDate,
+      airWeekday: card.airWeekday,
+      platform: card.platform,
+      eps: card.eps,
+      totalEpisodes: card.totalEpisodes,
+      ratingScore: card.ratingScore,
+      rank: card.rank,
+      votes: card.votes,
+      votesCount: card.votesCount,
+      tags: card.tags,
     );
   }
 
   final int id;
   final String title;
   final String coverUrl;
+  final String? name;
+  final String? nameCn;
+  final String? summary;
+  final String? airDate;
+  final int? airWeekday;
+  final String? platform;
+  final int? eps;
+  final int? totalEpisodes;
+  final double? ratingScore;
+  final int? rank;
+  final int votes;
+  final List<int> votesCount;
+  final List<BangumiTag> tags;
 
   BangumiItem toBangumiItem() {
     return BangumiItem(
@@ -66,17 +162,42 @@ class LaevaBangumiUpdateItem {
     required this.title,
     required this.coverUrl,
     required this.summary,
+    required this.name,
+    required this.nameCn,
+    required this.airDate,
+    required this.airWeekday,
+    required this.platform,
+    required this.eps,
+    required this.totalEpisodes,
+    required this.ratingScore,
+    required this.rank,
+    required this.votes,
+    required this.votesCount,
+    required this.tags,
     required this.latestEp,
     required this.latestEpisode,
     required this.updatedAt,
   });
 
   factory LaevaBangumiUpdateItem.fromJson(Map<String, dynamic> json) {
+    final card = LaevaBangumiSubjectCardFields.fromJson(json);
     return LaevaBangumiUpdateItem(
-      id: _parseInt(json['id']) ?? 0,
-      title: _string(json['title']),
+      id: card.id,
+      title: card.title,
       coverUrl: _nullableString(json['coverUrl']),
-      summary: _nullableString(json['summary']),
+      summary: card.summary,
+      name: card.name,
+      nameCn: card.nameCn,
+      airDate: card.airDate,
+      airWeekday: card.airWeekday,
+      platform: card.platform,
+      eps: card.eps,
+      totalEpisodes: card.totalEpisodes,
+      ratingScore: card.ratingScore,
+      rank: card.rank,
+      votes: card.votes,
+      votesCount: card.votesCount,
+      tags: card.tags,
       latestEp: _parseInt(json['latestEp']),
       latestEpisode: _nullableString(json['latestEpisode']),
       updatedAt: _nullableString(json['updatedAt']),
@@ -87,6 +208,18 @@ class LaevaBangumiUpdateItem {
   final String title;
   final String? coverUrl;
   final String? summary;
+  final String? name;
+  final String? nameCn;
+  final String? airDate;
+  final int? airWeekday;
+  final String? platform;
+  final int? eps;
+  final int? totalEpisodes;
+  final double? ratingScore;
+  final int? rank;
+  final int votes;
+  final List<int> votesCount;
+  final List<BangumiTag> tags;
   final int? latestEp;
   final String? latestEpisode;
   final String? updatedAt;
@@ -144,8 +277,17 @@ class LaevaBangumiCalendarItem {
   LaevaBangumiCalendarItem({
     required this.id,
     required this.title,
+    required this.name,
+    required this.nameCn,
     required this.coverUrl,
+    required this.summary,
     required this.ratingScore,
+    required this.rank,
+    required this.votes,
+    required this.votesCount,
+    required this.tags,
+    required this.airWeekday,
+    required this.platform,
     required this.eps,
     required this.totalEpisodes,
     required this.latestEp,
@@ -154,23 +296,42 @@ class LaevaBangumiCalendarItem {
   });
 
   factory LaevaBangumiCalendarItem.fromJson(Map<String, dynamic> json) {
+    final card = LaevaBangumiSubjectCardFields.fromJson(json);
     return LaevaBangumiCalendarItem(
-      id: _parseInt(json['id']) ?? 0,
-      title: _string(json['title']),
+      id: card.id,
+      title: card.title,
+      name: card.name,
+      nameCn: card.nameCn,
       coverUrl: _nullableString(json['coverUrl']),
-      ratingScore: _parseDouble(json['ratingScore']),
-      eps: _parseInt(json['eps']),
-      totalEpisodes: _parseInt(json['totalEpisodes']),
+      summary: card.summary,
+      ratingScore: card.ratingScore,
+      rank: card.rank,
+      votes: card.votes,
+      votesCount: card.votesCount,
+      tags: card.tags,
+      airWeekday: card.airWeekday,
+      platform: card.platform,
+      eps: card.eps,
+      totalEpisodes: card.totalEpisodes,
       latestEp: _parseInt(json['latestEp']),
       lastUpdated: _nullableString(json['lastUpdated']),
-      airDate: _nullableString(json['airDate']),
+      airDate: card.airDate,
     );
   }
 
   final int id;
   final String title;
+  final String? name;
+  final String? nameCn;
   final String? coverUrl;
+  final String? summary;
   final double? ratingScore;
+  final int? rank;
+  final int votes;
+  final List<int> votesCount;
+  final List<BangumiTag> tags;
+  final int? airWeekday;
+  final String? platform;
   final int? eps;
   final int? totalEpisodes;
   final int? latestEp;
@@ -229,13 +390,8 @@ class LaevaBangumiDetail {
       ratingScore: _parseDouble(json['ratingScore']),
       rank: _parseInt(json['rank']),
       votes: _parseInt(json['votes']) ?? 0,
-      votesCount: (json['votesCount'] as List<dynamic>? ?? const [])
-          .map((value) => _parseInt(value) ?? 0)
-          .toList(),
-      tags: (json['tags'] as List<dynamic>? ?? const [])
-          .map(_parseBangumiTag)
-          .where((tag) => tag.name.isNotEmpty)
-          .toList(),
+      votesCount: _parseVotesCount(json['votesCount']),
+      tags: _parseBangumiTags(json['tags']),
       channels: (json['channels'] as List<dynamic>? ?? const [])
           .whereType<Map>()
           .map(
@@ -396,4 +552,17 @@ BangumiTag _parseBangumiTag(dynamic value) {
     );
   }
   return BangumiTag(name: _string(value), count: 0, totalCount: 0);
+}
+
+List<int> _parseVotesCount(dynamic value) {
+  return (value as List<dynamic>? ?? const [])
+      .map((entry) => _parseInt(entry) ?? 0)
+      .toList();
+}
+
+List<BangumiTag> _parseBangumiTags(dynamic value) {
+  return (value as List<dynamic>? ?? const [])
+      .map(_parseBangumiTag)
+      .where((tag) => tag.name.isNotEmpty)
+      .toList();
 }

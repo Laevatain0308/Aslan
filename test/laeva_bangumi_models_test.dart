@@ -15,12 +15,32 @@ void main() {
       final item = LaevaBangumiSearchItem.fromJson({
         'id': 456079,
         'title': '和班上第二可爱的女孩成为朋友',
+        'name': 'クラスで2番目に可愛い女の子と友だちになった',
+        'nameCn': '和班上第二可爱的女孩成为朋友',
         'coverUrl': 'https://img.laevatain.top/cover/456079.jpg',
+        'summary': '搜索简介',
+        'airDate': '2026-04-01',
+        'airWeekday': 3,
+        'platform': 'TV',
+        'eps': 12,
+        'totalEpisodes': 12,
+        'ratingScore': 7.1,
+        'rank': 1234,
+        'votes': 420,
+        'votesCount': [1, 2, 3],
+        'tags': [
+          {'name': '恋爱', 'count': 20, 'totalCount': 30},
+        ],
       });
 
       final bangumiItem = item.toBangumiItem();
 
       expect(item.id, 456079);
+      expect(item.name, 'クラスで2番目に可愛い女の子と友だちになった');
+      expect(item.nameCn, '和班上第二可爱的女孩成为朋友');
+      expect(item.ratingScore, 7.1);
+      expect(item.votesCount, [1, 2, 3]);
+      expect(item.tags.single.name, '恋爱');
       expect(bangumiItem.id, 456079);
       expect(LaevaBangumiMetadata.apiIdFromItem(bangumiItem), 456079);
     });
@@ -31,6 +51,20 @@ void main() {
         'title': '欺诈游戏',
         'coverUrl': 'https://img.laevatain.top/cover/580133.jpg',
         'summary': '突然届けられた1億円と謎の招待状',
+        'name': 'ライアーゲーム',
+        'nameCn': '欺诈游戏',
+        'airDate': '2026-04-01',
+        'airWeekday': 3,
+        'platform': 'TV',
+        'eps': 12,
+        'totalEpisodes': 12,
+        'ratingScore': 7.6,
+        'rank': 1000,
+        'votes': 420,
+        'votesCount': [0, 1, 2],
+        'tags': [
+          {'name': '智斗', 'count': 8, 'totalCount': 12},
+        ],
         'latestEp': 9,
         'latestEpisode': '更新至第09集',
         'updatedAt': '2026-06-01T16:43:24.000Z',
@@ -40,6 +74,10 @@ void main() {
 
       expect(item.id, 580133);
       expect(item.latestEpisode, '更新至第09集');
+      expect(item.name, 'ライアーゲーム');
+      expect(item.nameCn, '欺诈游戏');
+      expect(item.ratingScore, 7.6);
+      expect(item.tags.single.name, '智斗');
       expect(bangumiItem.id, 580133);
       expect(bangumiItem.nameCn, '欺诈游戏');
       expect(bangumiItem.summary, '突然届けられた1億円と謎の招待状');
@@ -58,8 +96,19 @@ void main() {
           {
             'id': 377130,
             'title': '尖帽子的魔法工房',
+            'name': 'とんがり帽子のアトリエ',
+            'nameCn': '尖帽子的魔法工房',
             'coverUrl': 'https://img.laevatain.top/cover/377130.jpg',
+            'summary': '魔法工房简介',
             'ratingScore': 7.6,
+            'rank': 900,
+            'votes': 300,
+            'votesCount': [0, 1, 1],
+            'tags': [
+              {'name': '奇幻', 'count': 9, 'totalCount': 10},
+            ],
+            'airWeekday': 2,
+            'platform': 'TV',
             'eps': 12,
             'totalEpisodes': 12,
             'latestEp': 10,
@@ -77,6 +126,10 @@ void main() {
       expect(bangumiItems.single.airWeekday, 2);
       expect(bangumiItems.single.ratingScore, 7.6);
       expect(bangumiItems.single.summary, '更新至第10集');
+      expect(day.items.single.name, 'とんがり帽子のアトリエ');
+      expect(day.items.single.rank, 900);
+      expect(day.items.single.votes, 300);
+      expect(day.items.single.tags.single.name, '奇幻');
       expect(LaevaBangumiMetadata.isLaevaItem(bangumiItems.single), isTrue);
       expect(LaevaBangumiMetadata.apiIdFromItem(bangumiItems.single), 377130);
     });
