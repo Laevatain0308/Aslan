@@ -96,7 +96,7 @@ class _MyPageState extends State<MyPage> {
                     style: TextStyle(fontFamily: fontFamily),
                   ),
                   description: Text(
-                    '配置 LaevaBangumi API 地址',
+                    '配置番剧数据源 API 地址',
                     style: TextStyle(fontFamily: fontFamily),
                   ),
                 ),
