@@ -513,7 +513,7 @@ abstract class _VideoPageController with Store {
       final chapterName = road.identifier[selection.episode - 1];
       KazumiLogger().i('VideoPageController: changed to $chapterName');
       final request = _laevaPlayRequestForSelection(selection);
-      final playData = await LaevaBangumiApi.getPlayUrl(
+      final playResponse = await LaevaBangumiApi.getPlayUrl(
         id: request.id,
         channel: request.channel,
         episode: request.episode,
@@ -521,6 +521,7 @@ abstract class _VideoPageController with Store {
       if (session.isStale) {
         return;
       }
+      final playData = playResponse?.data;
       if (playData == null) {
         throw const LaevaBangumiApiException('未获取到播放地址');
       }

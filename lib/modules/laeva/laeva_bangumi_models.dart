@@ -177,6 +177,8 @@ class LaevaBangumiUpdateItem {
     required this.latestEp,
     required this.latestEpisode,
     required this.updatedAt,
+    required this.source,
+    required this.sourceAid,
   });
 
   factory LaevaBangumiUpdateItem.fromJson(Map<String, dynamic> json) {
@@ -201,6 +203,8 @@ class LaevaBangumiUpdateItem {
       latestEp: _parseInt(json['latestEp']),
       latestEpisode: _nullableString(json['latestEpisode']),
       updatedAt: _nullableString(json['updatedAt']),
+      source: _nullableString(json['source']),
+      sourceAid: _parseInt(json['sourceAid']),
     );
   }
 
@@ -223,6 +227,8 @@ class LaevaBangumiUpdateItem {
   final int? latestEp;
   final String? latestEpisode;
   final String? updatedAt;
+  final String? source;
+  final int? sourceAid;
 
   BangumiItem toBangumiItem() {
     return BangumiItem(
@@ -363,17 +369,21 @@ class LaevaBangumiDetail {
   LaevaBangumiDetail({
     required this.id,
     required this.title,
+    required this.name,
+    required this.nameCn,
     required this.summary,
     required this.coverUrl,
     required this.eps,
     required this.totalEpisodes,
     required this.airDate,
+    required this.airWeekday,
     required this.platform,
     required this.ratingScore,
     required this.rank,
     required this.votes,
     required this.votesCount,
     required this.tags,
+    required this.aliases,
     required this.channels,
   });
 
@@ -381,17 +391,21 @@ class LaevaBangumiDetail {
     return LaevaBangumiDetail(
       id: _parseInt(json['id']) ?? 0,
       title: _string(json['title']),
+      name: _nullableString(json['name']),
+      nameCn: _nullableString(json['nameCn']),
       summary: _string(json['summary']),
       coverUrl: _nullableString(json['coverUrl']),
       eps: _parseInt(json['eps']),
       totalEpisodes: _parseInt(json['totalEpisodes']),
       airDate: _nullableString(json['airDate']),
+      airWeekday: _parseInt(json['airWeekday']),
       platform: _nullableString(json['platform']),
       ratingScore: _parseDouble(json['ratingScore']),
       rank: _parseInt(json['rank']),
       votes: _parseInt(json['votes']) ?? 0,
       votesCount: _parseVotesCount(json['votesCount']),
       tags: _parseBangumiTags(json['tags']),
+      aliases: _parseStringList(json['aliases']),
       channels: (json['channels'] as List<dynamic>? ?? const [])
           .whereType<Map>()
           .map(
@@ -404,17 +418,21 @@ class LaevaBangumiDetail {
 
   final int id;
   final String title;
+  final String? name;
+  final String? nameCn;
   final String summary;
   final String? coverUrl;
   final int? eps;
   final int? totalEpisodes;
   final String? airDate;
+  final int? airWeekday;
   final String? platform;
   final double? ratingScore;
   final int? rank;
   final int votes;
   final List<int> votesCount;
   final List<BangumiTag> tags;
+  final List<String> aliases;
   final List<LaevaBangumiChannel> channels;
 
   bool get hasPlayableEpisodes =>
@@ -451,15 +469,21 @@ class LaevaBangumiDetail {
 
 class LaevaBangumiChannel {
   LaevaBangumiChannel({
+    required this.id,
     required this.name,
+    required this.source,
     required this.sourceAid,
+    required this.resourceTitle,
     required this.episodes,
   });
 
   factory LaevaBangumiChannel.fromJson(Map<String, dynamic> json) {
     return LaevaBangumiChannel(
+      id: _nullableString(json['id']),
       name: _string(json['name'], fallback: '播放线路'),
+      source: _nullableString(json['source']),
       sourceAid: _parseInt(json['sourceAid']),
+      resourceTitle: _nullableString(json['resourceTitle']),
       episodes: (json['episodes'] as List<dynamic>? ?? const [])
           .whereType<Map>()
           .map(
@@ -470,8 +494,11 @@ class LaevaBangumiChannel {
     );
   }
 
+  final String? id;
   final String name;
+  final String? source;
   final int? sourceAid;
+  final String? resourceTitle;
   final List<LaevaBangumiEpisode> episodes;
 }
 
@@ -480,6 +507,8 @@ class LaevaBangumiEpisode {
     required this.name,
     required this.playUrl,
     required this.index,
+    required this.sourceIndex,
+    required this.updatedAt,
   });
 
   factory LaevaBangumiEpisode.fromJson(Map<String, dynamic> json) {
@@ -487,26 +516,124 @@ class LaevaBangumiEpisode {
       name: _string(json['name'], fallback: '未命名剧集'),
       playUrl: _string(json['playUrl']),
       index: _parseInt(json['index']) ?? 0,
+      sourceIndex: _parseInt(json['sourceIndex']),
+      updatedAt: _nullableString(json['updatedAt']),
     );
   }
 
   final String name;
   final String playUrl;
   final int index;
+  final int? sourceIndex;
+  final String? updatedAt;
 }
 
 class LaevaBangumiPlayData {
-  LaevaBangumiPlayData({required this.videoUrl, required this.directPlay});
+  LaevaBangumiPlayData({
+    required this.videoUrl,
+    required this.directPlay,
+    required this.headers,
+    required this.expiresAt,
+  });
 
   factory LaevaBangumiPlayData.fromJson(Map<String, dynamic> json) {
     return LaevaBangumiPlayData(
       videoUrl: _string(json['videoUrl']),
       directPlay: json['directPlay'] == true,
+      headers: _parseStringMap(json['headers']),
+      expiresAt: _nullableString(json['expiresAt']),
     );
   }
 
   final String videoUrl;
   final bool directPlay;
+  final Map<String, String> headers;
+  final String? expiresAt;
+}
+
+class LaevaBangumiApiEnvelope<T> {
+  LaevaBangumiApiEnvelope({
+    required this.data,
+    required this.updatedAt,
+    required this.meta,
+  });
+
+  final T data;
+  final String? updatedAt;
+  final LaevaBangumiApiMeta meta;
+
+  LaevaBangumiApiEnvelope<R> mapData<R>(R Function(T data) mapper) {
+    return LaevaBangumiApiEnvelope<R>(
+      data: mapper(data),
+      updatedAt: updatedAt,
+      meta: meta,
+    );
+  }
+}
+
+class LaevaBangumiApiMeta {
+  LaevaBangumiApiMeta({
+    required this.freshness,
+    required this.warnings,
+    required this.error,
+    required this.total,
+    required this.days,
+    required this.resourceStatus,
+    required this.resourceSources,
+  });
+
+  factory LaevaBangumiApiMeta.fromJson(Map<String, dynamic> json) {
+    return LaevaBangumiApiMeta(
+      freshness: _nullableString(json['freshness']),
+      warnings: _parseStringList(json['warnings']),
+      error: _nullableString(json['error']),
+      total: _parseInt(json['total']),
+      days: _parseInt(json['days']),
+      resourceStatus: _nullableString(json['resourceStatus']),
+      resourceSources: (json['resourceSources'] as List<dynamic>? ?? const [])
+          .whereType<Map>()
+          .map(
+            (item) => LaevaBangumiResourceSourceStatus.fromJson(
+              Map<String, dynamic>.from(item),
+            ),
+          )
+          .toList(),
+    );
+  }
+
+  final String? freshness;
+  final List<String> warnings;
+  final String? error;
+  final int? total;
+  final int? days;
+  final String? resourceStatus;
+  final List<LaevaBangumiResourceSourceStatus> resourceSources;
+}
+
+class LaevaBangumiResourceSourceStatus {
+  LaevaBangumiResourceSourceStatus({
+    required this.source,
+    required this.name,
+    required this.status,
+    required this.sourceAid,
+    required this.note,
+  });
+
+  factory LaevaBangumiResourceSourceStatus.fromJson(Map<String, dynamic> json) {
+    return LaevaBangumiResourceSourceStatus(
+      source: _string(json['source']),
+      name: _string(json['name']),
+      status: _string(json['status']),
+      sourceAid: _parseInt(json['sourceAid']),
+      note: _nullableString(json['note']),
+    );
+  }
+
+  final String source;
+  final String name;
+  final String status;
+  final int? sourceAid;
+  final String? note;
 }
 
 Map<String, String> _imageMap(String coverUrl) {
@@ -565,4 +692,16 @@ List<BangumiTag> _parseBangumiTags(dynamic value) {
       .map(_parseBangumiTag)
       .where((tag) => tag.name.isNotEmpty)
       .toList();
+}
+
+List<String> _parseStringList(dynamic value) {
+  return (value as List<dynamic>? ?? const [])
+      .map(_nullableString)
+      .whereType<String>()
+      .toList();
+}
+
+Map<String, String> _parseStringMap(dynamic value) {
+  if (value is! Map) return const {};
+  return value.map((key, entry) => MapEntry(key.toString(), entry.toString()));
 }

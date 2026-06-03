@@ -68,6 +68,8 @@ void main() {
         'latestEp': 9,
         'latestEpisode': '更新至第09集',
         'updatedAt': '2026-06-01T16:43:24.000Z',
+        'source': 'ffzy',
+        'sourceAid': 123,
       });
 
       final bangumiItem = item.toBangumiItem();
@@ -78,6 +80,8 @@ void main() {
       expect(item.nameCn, '欺诈游戏');
       expect(item.ratingScore, 7.6);
       expect(item.tags.single.name, '智斗');
+      expect(item.source, 'ffzy');
+      expect(item.sourceAid, 123);
       expect(bangumiItem.id, 580133);
       expect(bangumiItem.nameCn, '欺诈游戏');
       expect(bangumiItem.summary, '突然届けられた1億円と謎の招待状');
@@ -138,11 +142,14 @@ void main() {
       final detail = LaevaBangumiDetail.fromJson({
         'id': 547888,
         'title': '中文标题',
+        'name': '原名',
+        'nameCn': '中文标题',
         'summary': '简介',
         'coverUrl': 'https://img.laevatain.top/cover/547888.jpg',
         'eps': 12,
         'totalEpisodes': 12,
         'airDate': '2026-04-01',
+        'airWeekday': 3,
         'platform': 'TV',
         'ratingScore': 7.6,
         'rank': 1234,
@@ -151,15 +158,21 @@ void main() {
         'tags': [
           {'name': '原创', 'count': 10, 'totalCount': 20},
         ],
+        'aliases': ['别名1', '别名2'],
         'channels': [
           {
+            'id': 'ffzy:123',
             'name': '非凡资源',
+            'source': 'ffzy',
             'sourceAid': 123,
+            'resourceTitle': '资源站标题',
             'episodes': [
               {
                 'index': 1,
+                'sourceIndex': 2,
                 'name': '第01集',
                 'playUrl': '/anime/api/play?id=547888&ch=1&ep=1',
+                'updatedAt': '2026-06-01T16:43:24.000Z',
               },
             ],
           },
@@ -175,6 +188,16 @@ void main() {
 
       expect(detail.channels.single.episodes.single.playUrl,
           '/anime/api/play?id=547888&ch=1&ep=1');
+      expect(detail.name, '原名');
+      expect(detail.nameCn, '中文标题');
+      expect(detail.airWeekday, 3);
+      expect(detail.aliases, ['别名1', '别名2']);
+      expect(detail.channels.single.id, 'ffzy:123');
+      expect(detail.channels.single.source, 'ffzy');
+      expect(detail.channels.single.resourceTitle, '资源站标题');
+      expect(detail.channels.single.episodes.single.sourceIndex, 2);
+      expect(detail.channels.single.episodes.single.updatedAt,
+          '2026-06-01T16:43:24.000Z');
       expect(detail.toRoads().single.data.single,
           '/anime/api/play?id=547888&ch=1&ep=1');
       expect(bangumiItem.votes, 420);
@@ -188,10 +211,36 @@ void main() {
       final playData = LaevaBangumiPlayData.fromJson({
         'videoUrl': 'https://example.invalid/1.m3u8',
         'directPlay': false,
+        'headers': {'Referer': 'https://example.invalid/'},
+        'expiresAt': '2026-06-03T12:00:00.000Z',
       });
 
       expect(playData.videoUrl, 'https://example.invalid/1.m3u8');
       expect(playData.directPlay, isFalse);
+      expect(playData.headers['Referer'], 'https://example.invalid/');
+      expect(playData.expiresAt, '2026-06-03T12:00:00.000Z');
+    });
+
+    test('parses API envelope metadata without requiring UI consumption', () {
+      final meta = LaevaBangumiApiMeta.fromJson({
+        'freshness': 'cache',
+        'resourceStatus': 'ready',
+        'resourceSources': [
+          {
+            'source': 'ffzy',
+            'name': '非凡资源',
+            'status': 'ready',
+            'sourceAid': 123,
+            'note': null,
+          },
+        ],
+        'warnings': [],
+      });
+
+      expect(meta.freshness, 'cache');
+      expect(meta.resourceStatus, 'ready');
+      expect(meta.resourceSources.single.source, 'ffzy');
+      expect(meta.resourceSources.single.sourceAid, 123);
     });
   });
 }

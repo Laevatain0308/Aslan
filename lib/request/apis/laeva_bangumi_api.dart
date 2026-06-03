@@ -31,31 +31,33 @@ class LaevaBangumiApi {
     return value.replaceFirst(RegExp(r'/+$'), '');
   }
 
-  static Future<List<LaevaBangumiUpdateItem>> getUpdates({
+  static Future<LaevaBangumiApiEnvelope<List<LaevaBangumiUpdateItem>>>
+      getUpdates({
     int days = 7,
     int limit = 24,
   }) async {
-    final data = await _get(
+    final response = await _getEnvelope(
       '/updates',
       queryParameters: {
         'days': days,
         'limit': limit,
       },
     );
-    final list = data as List<dynamic>? ?? const [];
-    return list
+    final list = response.data as List<dynamic>? ?? const [];
+    return response.mapData((_) => list
         .whereType<Map>()
         .map(
           (item) =>
               LaevaBangumiUpdateItem.fromJson(Map<String, dynamic>.from(item)),
         )
         .where((item) => item.id > 0 && item.title.isNotEmpty)
-        .toList();
+        .toList());
   }
 
-  static Future<List<List<BangumiItem>>> getCalendar() async {
-    final data = await _get('/calendar');
-    final days = data as List<dynamic>? ?? const [];
+  static Future<LaevaBangumiApiEnvelope<List<List<BangumiItem>>>>
+      getCalendar() async {
+    final response = await _getEnvelope('/calendar');
+    final days = response.data as List<dynamic>? ?? const [];
     final calendar = List.generate(7, (_) => <BangumiItem>[]);
     for (final dayJson in days.whereType<Map>()) {
       final day = LaevaBangumiCalendarDay.fromJson(
@@ -66,45 +68,52 @@ class LaevaBangumiApi {
       }
       calendar[day.weekdayId - 1] = day.toBangumiItems();
     }
-    return calendar;
+    return response.mapData((_) => calendar);
   }
 
-  static Future<List<LaevaBangumiSearchItem>> search(
+  static Future<LaevaBangumiApiEnvelope<List<LaevaBangumiSearchItem>>> search(
     String keyword, {
     bool byTag = false,
   }) async {
-    final data = await _get(
+    final response = await _getEnvelope(
       '/search',
       queryParameters: byTag ? {'tag': keyword} : {'q': keyword},
     );
-    final list = data as List<dynamic>? ?? const [];
-    return list
+    final list = response.data as List<dynamic>? ?? const [];
+    return response.mapData((_) => list
         .whereType<Map>()
         .map(
           (item) =>
               LaevaBangumiSearchItem.fromJson(Map<String, dynamic>.from(item)),
         )
         .where((item) => item.id > 0 && item.title.isNotEmpty)
-        .toList();
+        .toList());
   }
 
-  static Future<LaevaBangumiDetail?> getDetail(int id) async {
-    final data = await _get('/detail', queryParameters: {'id': id});
+  static Future<LaevaBangumiApiEnvelope<LaevaBangumiDetail>?> getDetail(
+      int id) async {
+    final response = await _getEnvelope('/detail', queryParameters: {'id': id});
+    final data = response.data;
     if (data is! Map) {
       return null;
     }
-    return LaevaBangumiDetail.fromJson(Map<String, dynamic>.from(data));
+    return LaevaBangumiApiEnvelope<LaevaBangumiDetail>(
+      data: LaevaBangumiDetail.fromJson(Map<String, dynamic>.from(data)),
+      updatedAt: response.updatedAt,
+      meta: response.meta,
+    );
   }
 
-  static Future<LaevaBangumiPlayData?> getPlayUrl({
+  static Future<LaevaBangumiApiEnvelope<LaevaBangumiPlayData>?> getPlayUrl({
     required int id,
     required int channel,
     required int episode,
   }) async {
-    final data = await _get(
+    final response = await _getEnvelope(
       '/play',
       queryParameters: {'id': id, 'ch': channel, 'ep': episode},
     );
+    final data = response.data;
     if (data is! Map) {
       return null;
     }
@@ -114,10 +123,10 @@ class LaevaBangumiApi {
     if (playData.videoUrl.isEmpty) {
       return null;
     }
-    return playData;
+    return response.mapData((_) => playData);
   }
 
-  static Future<dynamic> _get(
+  static Future<LaevaBangumiApiEnvelope<dynamic>> _getEnvelope(
     String path, {
     Map<String, dynamic> queryParameters = const {},
   }) async {
@@ -126,14 +135,20 @@ class LaevaBangumiApi {
       queryParameters: queryParameters,
     );
     final json = _decodeResponse(response);
+    final meta = json['meta'] is Map
+        ? LaevaBangumiApiMeta.fromJson(Map<String, dynamic>.from(json['meta']))
+        : LaevaBangumiApiMeta.fromJson(const {});
     if (json['data'] == null) {
-      final meta = json['meta'];
-      if (meta is Map && meta['warnings'] is List) {
-        throw LaevaBangumiApiException((meta['warnings'] as List).join(', '));
+      if (meta.warnings.isNotEmpty) {
+        throw LaevaBangumiApiException(meta.warnings.join(', '));
       }
       throw const LaevaBangumiApiException('LaevaBangumi returned empty data');
     }
-    return json['data'];
+    return LaevaBangumiApiEnvelope<dynamic>(
+      data: json['data'],
+      updatedAt: json['updatedAt']?.toString(),
+      meta: meta,
+    );
   }
 
   static Map<String, dynamic> _decodeResponse(Response<dynamic> response) {

@@ -29,7 +29,7 @@ abstract class _InfoController with Store {
     isLoading = true;
     try {
       final id = LaevaBangumiMetadata.apiIdFromItem(bangumiItem);
-      final detail = await LaevaBangumiApi.getDetail(id);
+      final detail = (await LaevaBangumiApi.getDetail(id))?.data;
       if (detail == null) {
         return;
       }

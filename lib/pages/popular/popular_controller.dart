@@ -45,9 +45,10 @@ abstract class _PopularController with Store {
     isLoadingMore = true;
     isTimeOut = false;
     try {
-      final result = await LaevaBangumiApi.getUpdates(
+      final result = (await LaevaBangumiApi.getUpdates(
         limit: trendList.length + _pageSize,
-      );
+      ))
+          .data;
       trendList
         ..clear()
         ..addAll(result.map((item) => item.toBangumiItem()));
@@ -74,7 +75,7 @@ abstract class _PopularController with Store {
     isTimeOut = false;
     var tag = currentTag;
     try {
-      final result = await LaevaBangumiApi.search(tag, byTag: true);
+      final result = (await LaevaBangumiApi.search(tag, byTag: true)).data;
       bangumiList
         ..clear()
         ..addAll(result.map((item) => item.toBangumiItem()));

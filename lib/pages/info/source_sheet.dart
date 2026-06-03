@@ -43,13 +43,13 @@ class _SourceSheetState extends State<SourceSheet> {
     });
     try {
       final cached = widget.infoController.laevaBangumiDetail;
-      final nextDetail =
-          cached ??
-          await LaevaBangumiApi.getDetail(
+      final nextDetail = cached ??
+          (await LaevaBangumiApi.getDetail(
             LaevaBangumiMetadata.apiIdFromItem(
               widget.infoController.bangumiItem,
             ),
-          );
+          ))
+              ?.data;
       if (nextDetail == null) {
         throw const LaevaBangumiApiException('未找到播放详情');
       }

@@ -53,7 +53,7 @@ abstract class _TimelineController with Store {
     isTimeOut = false;
     bangumiCalendar.clear();
     try {
-      final resBangumiCalendar = await LaevaBangumiApi.getCalendar();
+      final resBangumiCalendar = (await LaevaBangumiApi.getCalendar()).data;
       bangumiCalendar.clear();
       bangumiCalendar.addAll(resBangumiCalendar);
       isTimeOut = bangumiCalendar.isEmpty ||

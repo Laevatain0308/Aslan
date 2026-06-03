@@ -95,7 +95,8 @@ abstract class _SearchPageController with Store {
       SearchParser parser = SearchParser(input);
       final tag = parser.parseTag();
       if (tag != null && tag.trim().isNotEmpty) {
-        final result = await LaevaBangumiApi.search(tag.trim(), byTag: true);
+        final result =
+            (await LaevaBangumiApi.search(tag.trim(), byTag: true)).data;
         bangumiList
           ..clear()
           ..addAll(result.map((item) => item.toBangumiItem()));
@@ -109,7 +110,7 @@ abstract class _SearchPageController with Store {
         bangumiList.clear();
         return;
       }
-      final result = await LaevaBangumiApi.search(keywords);
+      final result = (await LaevaBangumiApi.search(keywords)).data;
       bangumiList
         ..clear()
         ..addAll(result.map((item) => item.toBangumiItem()));
