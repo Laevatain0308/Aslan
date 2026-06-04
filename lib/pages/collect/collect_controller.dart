@@ -1,3 +1,7 @@
+// ignore_for_file: library_private_types_in_public_api
+
+import 'dart:async';
+
 import 'package:flutter_modular/flutter_modular.dart';
 import 'package:kazumi/bean/dialog/dialog_helper.dart';
 import 'package:kazumi/modules/bangumi/bangumi_item.dart';
@@ -5,6 +9,7 @@ import 'package:kazumi/modules/collect/collect_module.dart';
 import 'package:kazumi/modules/collect/collect_type.dart';
 import 'package:kazumi/services/storage/storage.dart';
 import 'package:kazumi/services/sync/webdav.dart';
+import 'package:kazumi/services/sync/private_sync_service.dart';
 import 'package:kazumi/repositories/collect_crud_repository.dart';
 import 'package:kazumi/repositories/collect_repository.dart';
 import 'package:hive_ce/hive.dart';
@@ -57,6 +62,7 @@ abstract class _CollectController with Store {
       type: type,
     );
     loadCollectibles();
+    _syncPrivateCollectiblesInBackground();
   }
 
   @action
@@ -72,11 +78,13 @@ abstract class _CollectController with Store {
       type: 5,
     );
     loadCollectibles();
+    _syncPrivateCollectiblesInBackground();
   }
 
   Future<void> updateLocalCollect(BangumiItem bangumiItem) async {
     await _collectCrudRepository.updateCollectible(bangumiItem);
     loadCollectibles();
+    _syncPrivateCollectiblesInBackground();
   }
 
   Future<bool> syncCollectibles({bool showSuccessToast = true}) async {
@@ -206,5 +214,19 @@ abstract class _CollectController with Store {
       bool showSuccessToast = true}) async {
     KazumiDialog.showToast(message: '远程追番同步暂未开放');
     return false;
+  }
+
+  void _syncPrivateCollectiblesInBackground() {
+    final privateSyncEnable = setting.get(
+      SettingBoxKey.privateSyncEnable,
+      defaultValue: false,
+    );
+    if (privateSyncEnable == true) {
+      unawaited(() async {
+        await PrivateSyncService()
+            .syncInBackground(reason: 'collection-change');
+        loadCollectibles();
+      }());
+    }
   }
 }

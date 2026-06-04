@@ -32,6 +32,7 @@ import 'package:kazumi/utils/device.dart';
 import 'package:kazumi/services/platform/display_mode_service.dart';
 import 'package:kazumi/services/platform/player_menu_service.dart';
 import 'package:kazumi/utils/app_feature_flags.dart';
+import 'package:kazumi/services/sync/private_sync_service.dart';
 
 class PlayerItem extends StatefulWidget {
   const PlayerItem({
@@ -509,6 +510,16 @@ class _PlayerItemState extends State<PlayerItem>
     }
   }
 
+  void _syncPrivateStateInBackground(String reason) {
+    final privateSyncEnable = setting.get(
+      SettingBoxKey.privateSyncEnable,
+      defaultValue: false,
+    );
+    if (privateSyncEnable == true) {
+      unawaited(PrivateSyncService().syncInBackground(reason: reason));
+    }
+  }
+
   Future<void> _bindAudioService() async {
     try {
       await _audioController.bindCallbacks(
@@ -587,6 +598,7 @@ class _PlayerItemState extends State<PlayerItem>
     playerController.danmaku.canvasController.clear();
 
     await _syncHistoryWithWebDav();
+    _syncPrivateStateInBackground('player-fullscreen-change');
   }
 
   void handleProgressBarDragStart(ThumbDragDetails details) {
@@ -952,6 +964,7 @@ class _PlayerItemState extends State<PlayerItem>
           videoPageController
               .roadList[selection.road].identifier[selection.episode - 1],
         );
+        PrivateSyncService().syncPlaybackProgressInBackground();
       }
       // 自动播放下一集
       final playingSelection = videoPageController.playbackEpisode;

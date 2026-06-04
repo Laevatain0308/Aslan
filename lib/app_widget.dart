@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -16,6 +17,7 @@ import 'package:kazumi/utils/constants.dart';
 import 'package:kazumi/utils/device.dart';
 import 'package:kazumi/utils/theme.dart';
 import 'package:kazumi/utils/app_identity.dart';
+import 'package:kazumi/services/sync/private_sync_service.dart';
 
 class AppWidget extends StatefulWidget {
   const AppWidget({super.key});
@@ -275,11 +277,22 @@ class _AppWidgetState extends State<AppWidget>
     if (state == AppLifecycleState.paused) {
       KazumiLogger()
           .i("AppLifecycleState.paused: Application moved to background");
+      _syncPrivateStateInBackground('app-paused');
     } else if (state == AppLifecycleState.resumed) {
       KazumiLogger()
           .i("AppLifecycleState.resumed: Application moved to foreground");
     } else if (state == AppLifecycleState.inactive) {
       KazumiLogger().i("AppLifecycleState.inactive: Application is inactive");
+    }
+  }
+
+  void _syncPrivateStateInBackground(String reason) {
+    final privateSyncEnable = setting.get(
+      SettingBoxKey.privateSyncEnable,
+      defaultValue: false,
+    );
+    if (privateSyncEnable == true) {
+      unawaited(PrivateSyncService().syncInBackground(reason: reason));
     }
   }
 

@@ -93,11 +93,11 @@ class _MyPageState extends State<MyPage> {
                   },
                   leading: const Icon(Icons.dns_rounded),
                   title: Text(
-                    '服务器地址',
+                    '服务与同步',
                     style: TextStyle(fontFamily: fontFamily),
                   ),
                   description: Text(
-                    '配置番剧数据源 API 地址',
+                    '配置服务地址与数据同步',
                     style: TextStyle(fontFamily: fontFamily),
                   ),
                 ),

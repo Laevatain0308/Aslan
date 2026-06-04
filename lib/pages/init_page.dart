@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:hive_ce/hive.dart';
@@ -17,6 +18,7 @@ import 'package:kazumi/pages/download/download_controller.dart';
 import 'package:kazumi/services/download/background_download_service.dart';
 import 'package:kazumi/services/platform/windows_shortcut.dart';
 import 'package:kazumi/services/platform/platform_environment_service.dart';
+import 'package:kazumi/services/sync/private_sync_service.dart';
 import 'package:kazumi/utils/app_feature_flags.dart';
 
 class InitPage extends StatefulWidget {
@@ -51,6 +53,7 @@ class _InitPageState extends State<InitPage> {
     if (AppFeatureFlags.webDavSync) {
       _webDavInit();
     }
+    _privateSyncInit();
     try {
       await downloadController.init();
       _setupBackgroundDownloadNavigation();
@@ -164,6 +167,16 @@ class _InitPageState extends State<InitPage> {
           stackTrace: stackTrace,
         );
       }
+    }
+  }
+
+  void _privateSyncInit() {
+    final privateSyncEnable = setting.get(
+      SettingBoxKey.privateSyncEnable,
+      defaultValue: false,
+    );
+    if (privateSyncEnable == true) {
+      unawaited(PrivateSyncService().syncInBackground(reason: 'startup'));
     }
   }
 

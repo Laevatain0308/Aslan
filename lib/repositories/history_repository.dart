@@ -2,6 +2,7 @@ import 'package:kazumi/services/storage/storage.dart';
 import 'package:kazumi/modules/bangumi/bangumi_item.dart';
 import 'package:kazumi/modules/history/history_module.dart';
 import 'package:kazumi/services/sync/history_sync_service.dart';
+import 'package:kazumi/services/sync/private_sync_service.dart';
 import 'package:kazumi/services/logging/logger.dart';
 
 /// 历史记录数据访问接口
@@ -166,6 +167,14 @@ class HistoryRepository implements IHistoryRepository {
           progressMs: progress.inMilliseconds,
         ),
       );
+      await _appendPrivateSyncSafely(
+        () => PrivateSyncService().appendWatchUpsert(
+          history: history,
+          episode: episode,
+          road: road,
+          progressMs: progress.inMilliseconds,
+        ),
+      );
     } catch (e, stackTrace) {
       KazumiLogger().e(
         'GStorage: update history failed. bangumi=${bangumiItem.name}, episode=$episode',
@@ -214,6 +223,9 @@ class HistoryRepository implements IHistoryRepository {
       await HistorySyncService().appendSafely(
         () => HistorySyncService().appendDeleteHistory(history),
       );
+      await _appendPrivateSyncSafely(
+        () => PrivateSyncService().appendWatchDelete(history),
+      );
     } catch (e, stackTrace) {
       KazumiLogger().e(
         'GStorage: delete history failed. bangumi=${history.bangumiItem.name}',
@@ -240,6 +252,15 @@ class HistoryRepository implements IHistoryRepository {
             updatedAt: DateTime.now().millisecondsSinceEpoch,
           ),
         );
+        await _appendPrivateSyncSafely(
+          () => PrivateSyncService().appendWatchUpsert(
+            history: history,
+            episode: episode,
+            road: history.progresses[episode]!.road,
+            progressMs: 0,
+            updatedAt: DateTime.now().millisecondsSinceEpoch,
+          ),
+        );
       }
     } catch (e, stackTrace) {
       KazumiLogger().e(
@@ -256,6 +277,9 @@ class HistoryRepository implements IHistoryRepository {
       await _historiesBox.clear();
       await HistorySyncService().appendSafely(
         () => HistorySyncService().appendClearAll(),
+      );
+      await _appendPrivateSyncSafely(
+        () => PrivateSyncService().appendWatchClearAll(),
       );
     } catch (e, stackTrace) {
       KazumiLogger().e(
@@ -281,6 +305,18 @@ class HistoryRepository implements IHistoryRepository {
         stackTrace: stackTrace,
       );
       return false;
+    }
+  }
+
+  Future<void> _appendPrivateSyncSafely(Future<void> Function() append) async {
+    try {
+      await append();
+    } catch (e, stackTrace) {
+      KazumiLogger().e(
+        'PrivateSync: failed to append watch change',
+        error: e,
+        stackTrace: stackTrace,
+      );
     }
   }
 }
