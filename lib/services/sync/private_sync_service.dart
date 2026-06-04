@@ -12,6 +12,41 @@ import 'package:kazumi/services/logging/logger.dart';
 import 'package:kazumi/services/storage/storage.dart';
 import 'package:path_provider/path_provider.dart';
 
+enum PrivateSyncEnableStrategy {
+  merge,
+  localFirst,
+  cloudFirst,
+}
+
+class PrivateSyncEnableState {
+  const PrivateSyncEnableState({
+    required this.persistedSyncEnabled,
+    required this.persistedWatchEnabled,
+    required this.persistedCollectEnabled,
+    required this.nextSyncEnabled,
+    required this.nextWatchEnabled,
+    required this.nextCollectEnabled,
+  });
+
+  final bool persistedSyncEnabled;
+  final bool persistedWatchEnabled;
+  final bool persistedCollectEnabled;
+  final bool nextSyncEnabled;
+  final bool nextWatchEnabled;
+  final bool nextCollectEnabled;
+
+  bool get persistedWatchActive =>
+      persistedSyncEnabled && persistedWatchEnabled;
+  bool get persistedCollectActive =>
+      persistedSyncEnabled && persistedCollectEnabled;
+  bool get nextWatchActive => nextSyncEnabled && nextWatchEnabled;
+  bool get nextCollectActive => nextSyncEnabled && nextCollectEnabled;
+
+  bool get newlyEnabledWatch => nextWatchActive && !persistedWatchActive;
+  bool get newlyEnabledCollect => nextCollectActive && !persistedCollectActive;
+  bool get requiresEnableStrategy => newlyEnabledWatch || newlyEnabledCollect;
+}
+
 abstract class PrivateSyncSettingsStore {
   dynamic get(String key, {dynamic defaultValue});
   Future<void> put(String key, dynamic value);
@@ -192,11 +227,14 @@ class PrivateSyncTriggerThrottler {
 }
 
 class PrivateSyncService {
+  static const int maxEventsPerMerge = 100;
+
   static final PrivateSyncWatchDebouncer _sharedWatchDebouncer =
       PrivateSyncWatchDebouncer();
   static final PrivateSyncTriggerThrottler _sharedPlaybackSyncThrottler =
       PrivateSyncTriggerThrottler();
   static Future<PrivateSyncSyncResult>? _sharedSyncInFlight;
+  static int _syncGeneration = 0;
 
   PrivateSyncService({
     PrivateSyncSettingsStore settings = const HivePrivateSyncSettingsStore(),
@@ -250,10 +288,12 @@ class PrivateSyncService {
       adapterName: history.adapterName,
       bangumiItem: history.bangumiItem,
       episode: episode,
+      lastWatchEpisode: history.lastWatchEpisode,
       road: road,
       progressMs: progressMs,
       lastSrc: history.lastSrc,
       lastWatchEpisodeName: history.lastWatchEpisodeName,
+      lastWatchTime: history.lastWatchTime.millisecondsSinceEpoch,
     );
     await _localStore.appendEvent(event);
   }
@@ -291,16 +331,7 @@ class PrivateSyncService {
     if (!_enabled(SettingBoxKey.privateSyncEnableCollect)) {
       return;
     }
-    final event = PrivateSyncEvent.collectionUpsert(
-      eventId: await _nextEventId(),
-      deviceId: await _localStore.getDeviceId(),
-      seq: _lastSeq,
-      updatedAt: _now().millisecondsSinceEpoch,
-      bangumiItem: collectible.bangumiItem,
-      type: collectible.type,
-      collectedAt: collectible.time.millisecondsSinceEpoch,
-    );
-    await _localStore.appendEvent(event);
+    await _appendCollectionUpsert(collectible);
   }
 
   Future<void> appendCollectionDelete(int bangumiId) async {
@@ -358,11 +389,65 @@ class PrivateSyncService {
   }
 
   Future<PrivateSyncSyncResult> syncNow() {
+    return _syncWithSharedInFlight(() => _syncNowInternal());
+  }
+
+  Future<PrivateSyncSyncResult> syncNowWithStrategy(
+    PrivateSyncEnableStrategy strategy, {
+    bool forceLocalSnapshot = false,
+    bool? forceWatchSnapshot,
+    bool? forceCollectionSnapshot,
+  }) {
+    final hasDomainSelection =
+        forceWatchSnapshot != null || forceCollectionSnapshot != null;
+    if (strategy == PrivateSyncEnableStrategy.merge &&
+        !forceLocalSnapshot &&
+        !hasDomainSelection) {
+      return syncNow();
+    }
+    return _syncStrategyAfterCurrentInFlight(
+      strategy,
+      forceLocalSnapshot: forceLocalSnapshot,
+      forceWatchSnapshot: forceWatchSnapshot,
+      forceCollectionSnapshot: forceCollectionSnapshot,
+    );
+  }
+
+  Future<PrivateSyncSyncResult> _syncWithSharedInFlight(
+    Future<PrivateSyncSyncResult> Function() sync,
+  ) {
     final inFlight = _sharedSyncInFlight;
     if (inFlight != null) {
       return inFlight;
     }
-    final future = _syncNowInternal();
+    final future = sync();
+    _sharedSyncInFlight = future;
+    return future.whenComplete(() {
+      if (identical(_sharedSyncInFlight, future)) {
+        _sharedSyncInFlight = null;
+      }
+    });
+  }
+
+  Future<PrivateSyncSyncResult> _syncStrategyAfterCurrentInFlight(
+    PrivateSyncEnableStrategy strategy, {
+    required bool forceLocalSnapshot,
+    bool? forceWatchSnapshot,
+    bool? forceCollectionSnapshot,
+  }) async {
+    _syncGeneration++;
+    final inFlight = _sharedSyncInFlight;
+    if (inFlight != null) {
+      try {
+        await inFlight;
+      } catch (_) {}
+    }
+    final future = _syncNowInternal(
+      strategy: strategy,
+      forceLocalSnapshot: forceLocalSnapshot,
+      forceWatchSnapshot: forceWatchSnapshot,
+      forceCollectionSnapshot: forceCollectionSnapshot,
+    );
     _sharedSyncInFlight = future;
     return future.whenComplete(() {
       if (identical(_sharedSyncInFlight, future)) {
@@ -412,7 +497,12 @@ class PrivateSyncService {
     return syncEnabled && domainEnabled;
   }
 
-  Future<PrivateSyncSyncResult> _syncNowInternal() async {
+  Future<PrivateSyncSyncResult> _syncNowInternal({
+    PrivateSyncEnableStrategy strategy = PrivateSyncEnableStrategy.merge,
+    bool forceLocalSnapshot = false,
+    bool? forceWatchSnapshot,
+    bool? forceCollectionSnapshot,
+  }) async {
     final syncEnabled =
         _settings.get(SettingBoxKey.privateSyncEnable, defaultValue: false) ==
             true;
@@ -424,32 +514,149 @@ class PrivateSyncService {
     }
 
     final deviceId = await _localStore.getDeviceId();
-    final pending = await _localStore.readEvents();
     final api = _api ?? PrivateSyncApi();
-    await api.registerDevice(
-      deviceId: deviceId,
-      deviceName: _deviceName(),
-      platform: Platform.operatingSystem,
-      appVersion: ApiEndpoints.version,
-    );
-
     late final PrivateSyncMergeResult result;
+    var uploadedEventCount = 0;
+    final hasDomainSelection =
+        forceWatchSnapshot != null || forceCollectionSnapshot != null;
+    final activeWatchDomain = _enabled(SettingBoxKey.privateSyncEnableWatch);
+    final activeCollectionDomain =
+        _enabled(SettingBoxKey.privateSyncEnableCollect);
+    final strategyWatchDomain =
+        activeWatchDomain && (forceWatchSnapshot ?? true);
+    final strategyCollectionDomain =
+        activeCollectionDomain && (forceCollectionSnapshot ?? true);
+    final isExplicitEnableSync = strategy != PrivateSyncEnableStrategy.merge ||
+        forceLocalSnapshot ||
+        hasDomainSelection;
+    final generation =
+        isExplicitEnableSync ? ++_syncGeneration : _syncGeneration;
     try {
-      result = await api.merge(
+      await api.registerDevice(
         deviceId: deviceId,
-        clientSeq: _maxSeq(pending),
-        events: pending,
+        deviceName: _deviceName(),
+        platform: Platform.operatingSystem,
+        appVersion: ApiEndpoints.version,
       );
+      switch (strategy) {
+        case PrivateSyncEnableStrategy.cloudFirst:
+          await _clearPendingLocalOverrideDomains(
+            watch: strategyWatchDomain,
+            collection: strategyCollectionDomain,
+          );
+          await _removePendingEventsForDomains(
+            watch: strategyWatchDomain,
+            collection: strategyCollectionDomain,
+          );
+          result = await _uploadPendingEventsInBatches(api, deviceId);
+          uploadedEventCount = result.acceptedEventIds.length +
+              result.ignoredDuplicateEventIds.length;
+        case PrivateSyncEnableStrategy.localFirst:
+          await _prepareLocalOverrideEvents(
+            watch: strategyWatchDomain,
+            collection: strategyCollectionDomain,
+            eventUpdatedAt: _now().millisecondsSinceEpoch,
+          );
+          await _clearPendingRemoteForLocalOverride(
+            api,
+            watch: strategyWatchDomain,
+            collection: strategyCollectionDomain,
+          );
+          result = await _uploadPendingEventsInBatches(api, deviceId);
+          uploadedEventCount = result.acceptedEventIds.length +
+              result.ignoredDuplicateEventIds.length;
+        case PrivateSyncEnableStrategy.merge:
+          if (forceLocalSnapshot) {
+            await _removePendingEventsForDomains(
+              watch: strategyWatchDomain,
+              collection: strategyCollectionDomain,
+            );
+            await _importExistingLocalData(
+              eventUpdatedAt: _now().millisecondsSinceEpoch,
+              importWatch: strategyWatchDomain,
+              importCollection: strategyCollectionDomain,
+              includeDeletesFromBaseline: true,
+            );
+          } else {
+            await importExistingLocalDataIfNeeded();
+          }
+          await _clearPendingRemoteForLocalOverride(
+            api,
+            watch: activeWatchDomain,
+            collection: activeCollectionDomain,
+          );
+          result = await _uploadPendingEventsInBatches(api, deviceId);
+          uploadedEventCount = result.acceptedEventIds.length +
+              result.ignoredDuplicateEventIds.length;
+      }
     } on PrivateSyncAuthenticationException {
-      await _settings.put(SettingBoxKey.privateSyncEnable, false);
+      await markAuthenticationExpired(_settings);
       rethrow;
+    }
+    if (generation != _syncGeneration) {
+      final remaining = await _localStore.readEvents();
+      return PrivateSyncSyncResult(
+        uploadedEventCount: uploadedEventCount,
+        remainingEventCount: remaining.length,
+      );
     }
     await applySnapshot(
       result.snapshot,
-      applyWatch: _enabled(SettingBoxKey.privateSyncEnableWatch),
-      applyCollection: _enabled(SettingBoxKey.privateSyncEnableCollect),
+      applyWatch: activeWatchDomain,
+      applyCollection: activeCollectionDomain,
     );
+    if (isExplicitEnableSync) {
+      await _markImportedDomains(
+        watch: strategyWatchDomain,
+        collection: strategyCollectionDomain,
+      );
+    }
 
+    final remaining = await _removeAckedEvents(result);
+    return PrivateSyncSyncResult(
+      uploadedEventCount: uploadedEventCount,
+      remainingEventCount: remaining.length,
+    );
+  }
+
+  Future<PrivateSyncMergeResult> _uploadPendingEventsInBatches(
+    PrivateSyncApiClient api,
+    String deviceId,
+  ) async {
+    final pending = await _localStore.readEvents();
+    if (pending.isEmpty) {
+      return api.merge(
+        deviceId: deviceId,
+        clientSeq: 0,
+        events: const [],
+      );
+    }
+
+    final acceptedEventIds = <String>[];
+    final ignoredDuplicateEventIds = <String>[];
+    PrivateSyncSnapshot? snapshot;
+    for (var offset = 0; offset < pending.length; offset += maxEventsPerMerge) {
+      final end = min(offset + maxEventsPerMerge, pending.length);
+      final batch = pending.sublist(offset, end);
+      final result = await api.merge(
+        deviceId: deviceId,
+        clientSeq: _maxSeq(batch),
+        events: batch,
+      );
+      acceptedEventIds.addAll(result.acceptedEventIds);
+      ignoredDuplicateEventIds.addAll(result.ignoredDuplicateEventIds);
+      snapshot = result.snapshot;
+    }
+    return PrivateSyncMergeResult(
+      acceptedEventIds: acceptedEventIds,
+      ignoredDuplicateEventIds: ignoredDuplicateEventIds,
+      snapshot: snapshot!,
+    );
+  }
+
+  Future<List<PrivateSyncEvent>> _removeAckedEvents(
+    PrivateSyncMergeResult result,
+  ) async {
     final acked = {
       ...result.acceptedEventIds,
       ...result.ignoredDuplicateEventIds,
@@ -459,10 +666,107 @@ class PrivateSyncService {
         .where((event) => !acked.contains(event.eventId))
         .toList(growable: false);
     await _localStore.replaceEvents(remaining);
-    return PrivateSyncSyncResult(
-      uploadedEventCount: acked.length,
-      remainingEventCount: remaining.length,
+    return remaining;
+  }
+
+  Future<void> _removePendingEventsForDomains({
+    required bool watch,
+    required bool collection,
+  }) async {
+    if (!watch && !collection) {
+      return;
+    }
+    final events = await _localStore.readEvents();
+    final remaining = events
+        .where((event) =>
+            !(watch && event.domain == 'watch') &&
+            !(collection && event.domain == 'collection'))
+        .toList(growable: false);
+    await _localStore.replaceEvents(remaining);
+  }
+
+  Future<void> _prepareLocalOverrideEvents({
+    required bool watch,
+    required bool collection,
+    required int eventUpdatedAt,
+  }) async {
+    if (!watch && !collection) {
+      return;
+    }
+    if (watch) {
+      await _settings.put(
+        SettingBoxKey.privateSyncPendingLocalOverrideWatch,
+        true,
+      );
+    }
+    if (collection) {
+      await _settings.put(
+        SettingBoxKey.privateSyncPendingLocalOverrideCollect,
+        true,
+      );
+    }
+    await _removePendingEventsForDomains(
+      watch: watch,
+      collection: collection,
     );
+    await _importExistingLocalData(
+      eventUpdatedAt: eventUpdatedAt,
+      importWatch: watch,
+      importCollection: collection,
+      includeDeletesFromBaseline: false,
+    );
+    await _markImportedDomains(
+      watch: watch,
+      collection: collection,
+    );
+  }
+
+  Future<void> _clearPendingRemoteForLocalOverride(
+    PrivateSyncApiClient api, {
+    required bool watch,
+    required bool collection,
+  }) async {
+    final pendingWatch = watch &&
+        _settings.get(
+              SettingBoxKey.privateSyncPendingLocalOverrideWatch,
+              defaultValue: false,
+            ) ==
+            true;
+    final pendingCollection = collection &&
+        _settings.get(
+              SettingBoxKey.privateSyncPendingLocalOverrideCollect,
+              defaultValue: false,
+            ) ==
+            true;
+    if (!pendingWatch && !pendingCollection) {
+      return;
+    }
+    await api.clearData(
+      watch: pendingWatch,
+      collection: pendingCollection,
+    );
+    await _clearPendingLocalOverrideDomains(
+      watch: pendingWatch,
+      collection: pendingCollection,
+    );
+  }
+
+  Future<void> _clearPendingLocalOverrideDomains({
+    required bool watch,
+    required bool collection,
+  }) async {
+    if (watch) {
+      await _settings.put(
+        SettingBoxKey.privateSyncPendingLocalOverrideWatch,
+        false,
+      );
+    }
+    if (collection) {
+      await _settings.put(
+        SettingBoxKey.privateSyncPendingLocalOverrideCollect,
+        false,
+      );
+    }
   }
 
   String _deviceName() {
@@ -486,6 +790,66 @@ class PrivateSyncService {
     return max;
   }
 
+  static Future<void> markAuthenticationExpired(
+    PrivateSyncSettingsStore settings,
+  ) async {
+    await settings.put(SettingBoxKey.privateSyncEnable, false);
+    await settings.put(SettingBoxKey.privateSyncToken, '');
+    await settings.put(SettingBoxKey.privateSyncDisplayName, '');
+    await settings.put(SettingBoxKey.privateSyncWatchImported, false);
+    await settings.put(SettingBoxKey.privateSyncCollectImported, false);
+    await settings.put(SettingBoxKey.privateSyncWatchBaseline, '');
+    await settings.put(SettingBoxKey.privateSyncCollectBaseline, '');
+    await settings.put(
+        SettingBoxKey.privateSyncPendingLocalOverrideWatch, false);
+    await settings.put(
+      SettingBoxKey.privateSyncPendingLocalOverrideCollect,
+      false,
+    );
+  }
+
+  static Future<void> saveAuthenticationResult({
+    required PrivateSyncSettingsStore settings,
+    required PrivateSyncLocalStore localStore,
+    required PrivateSyncAuthResult result,
+    required String loginName,
+    required String previousLoginName,
+    required String previousToken,
+    required String deviceName,
+    required bool enableSync,
+  }) async {
+    final normalizedLoginName = loginName.trim();
+    final changedAccount = previousLoginName.trim().isNotEmpty &&
+        previousLoginName.trim() != normalizedLoginName;
+    final firstAccountLogin =
+        previousLoginName.trim().isEmpty && previousToken.trim().isEmpty;
+    if (changedAccount || firstAccountLogin) {
+      await localStore.clearEvents();
+      await settings.put(SettingBoxKey.privateSyncWatchImported, false);
+      await settings.put(SettingBoxKey.privateSyncCollectImported, false);
+      await settings.put(SettingBoxKey.privateSyncWatchBaseline, '');
+      await settings.put(SettingBoxKey.privateSyncCollectBaseline, '');
+      await settings.put(
+        SettingBoxKey.privateSyncPendingLocalOverrideWatch,
+        false,
+      );
+      await settings.put(
+        SettingBoxKey.privateSyncPendingLocalOverrideCollect,
+        false,
+      );
+    }
+    await settings.put(SettingBoxKey.privateSyncToken, result.token);
+    await settings.put(SettingBoxKey.privateSyncLoginName, normalizedLoginName);
+    await settings.put(
+      SettingBoxKey.privateSyncDisplayName,
+      result.displayName,
+    );
+    await settings.put(SettingBoxKey.privateSyncEnable, enableSync);
+    await settings.put(SettingBoxKey.privateSyncEnableWatch, true);
+    await settings.put(SettingBoxKey.privateSyncEnableCollect, true);
+    await settings.put(SettingBoxKey.privateSyncDeviceName, deviceName.trim());
+  }
+
   Future<void> _applyWatchSnapshot(PrivateSyncWatchSnapshot snapshot) async {
     await GStorage.histories.clear();
     for (final remote in snapshot.histories) {
@@ -507,6 +871,11 @@ class PrivateSyncService {
       await GStorage.histories.put(remote.entityKey, history);
     }
     await GStorage.histories.flush();
+    await _settings.put(
+      SettingBoxKey.privateSyncWatchBaseline,
+      _encodeBaselineKeys(
+          snapshot.histories.map((history) => history.entityKey)),
+    );
   }
 
   Future<void> _applyCollectionSnapshot(
@@ -514,6 +883,9 @@ class PrivateSyncService {
   ) async {
     await GStorage.collectibles.clear();
     for (final remote in snapshot.items) {
+      if (remote.type < 1 || remote.type > 5) {
+        continue;
+      }
       final collectible = CollectedBangumi(
         remote.bangumiItem,
         DateTime.fromMillisecondsSinceEpoch(
@@ -524,15 +896,80 @@ class PrivateSyncService {
       await GStorage.collectibles.put(remote.bangumiId, collectible);
     }
     await GStorage.collectibles.flush();
+    await _settings.put(
+      SettingBoxKey.privateSyncCollectBaseline,
+      _encodeBaselineKeys(
+        snapshot.items.map((item) => item.bangumiId.toString()),
+      ),
+    );
   }
 
-  Future<void> _importWatchHistories() async {
+  Future<void> _importExistingLocalData({
+    int? eventUpdatedAt,
+    bool importWatch = true,
+    bool importCollection = true,
+    bool includeDeletesFromBaseline = false,
+  }) async {
+    if (importWatch && _enabled(SettingBoxKey.privateSyncEnableWatch)) {
+      await _importWatchHistories(
+        eventUpdatedAt: eventUpdatedAt,
+        includeDeletesFromBaseline: includeDeletesFromBaseline,
+      );
+    }
+    if (importCollection && _enabled(SettingBoxKey.privateSyncEnableCollect)) {
+      await _importCollectibles(
+        eventUpdatedAt: eventUpdatedAt,
+        includeDeletesFromBaseline: includeDeletesFromBaseline,
+      );
+    }
+  }
+
+  Future<void> _markImportedDomains({
+    bool watch = true,
+    bool collection = true,
+  }) async {
+    if (watch && _enabled(SettingBoxKey.privateSyncEnableWatch)) {
+      await _settings.put(SettingBoxKey.privateSyncWatchImported, true);
+    }
+    if (collection && _enabled(SettingBoxKey.privateSyncEnableCollect)) {
+      await _settings.put(SettingBoxKey.privateSyncCollectImported, true);
+    }
+  }
+
+  Future<void> _importWatchHistories({
+    int? eventUpdatedAt,
+    bool includeDeletesFromBaseline = false,
+  }) async {
     final histories = GStorage.histories.values.toList()
       ..sort(
         (a, b) => a.lastWatchTime.millisecondsSinceEpoch.compareTo(
           b.lastWatchTime.millisecondsSinceEpoch,
         ),
       );
+    final localKeys = histories.map((history) => history.key).toSet();
+    if (includeDeletesFromBaseline &&
+        _settings.get(
+              SettingBoxKey.privateSyncWatchImported,
+              defaultValue: false,
+            ) ==
+            true) {
+      final baseline =
+          _readBaselineKeys(SettingBoxKey.privateSyncWatchBaseline);
+      for (final deletedKey in baseline.difference(localKeys).toList()
+        ..sort()) {
+        final updatedAt = eventUpdatedAt ?? _now().millisecondsSinceEpoch;
+        await _localStore.appendEvent(
+          PrivateSyncEvent.watchDelete(
+            eventId: await _nextEventId(),
+            deviceId: await _localStore.getDeviceId(),
+            seq: _lastSeq,
+            updatedAt: updatedAt,
+            entityKey: deletedKey,
+          ),
+        );
+        _watchDebouncer.reset(entityKey: deletedKey);
+      }
+    }
     for (final history in histories) {
       final progresses = history.progresses.values.toList()
         ..sort((a, b) => a.episode.compareTo(b.episode));
@@ -542,19 +979,79 @@ class PrivateSyncService {
           episode: progress.episode,
           road: progress.road,
           progressMs: progress.progress.inMilliseconds,
-          updatedAt: history.lastWatchTime.millisecondsSinceEpoch,
+          updatedAt:
+              eventUpdatedAt ?? history.lastWatchTime.millisecondsSinceEpoch,
           force: true,
         );
       }
     }
   }
 
-  Future<void> _importCollectibles() async {
+  Future<void> _importCollectibles({
+    int? eventUpdatedAt,
+    bool includeDeletesFromBaseline = false,
+  }) async {
     final collectibles = GStorage.collectibles.values.toList()
       ..sort((a, b) => a.bangumiItem.id.compareTo(b.bangumiItem.id));
-    for (final collectible in collectibles) {
-      await appendCollectionUpsert(collectible);
+    final localIds =
+        collectibles.map((item) => item.bangumiItem.id.toString()).toSet();
+    if (includeDeletesFromBaseline &&
+        _settings.get(
+              SettingBoxKey.privateSyncCollectImported,
+              defaultValue: false,
+            ) ==
+            true) {
+      final baseline =
+          _readBaselineKeys(SettingBoxKey.privateSyncCollectBaseline);
+      for (final deletedId in baseline.difference(localIds).toList()..sort()) {
+        final bangumiId = int.tryParse(deletedId);
+        if (bangumiId == null) {
+          continue;
+        }
+        await appendCollectionDelete(bangumiId);
+      }
     }
+    for (final collectible in collectibles) {
+      await _appendCollectionUpsert(collectible, updatedAt: eventUpdatedAt);
+    }
+  }
+
+  Future<void> _appendCollectionUpsert(
+    CollectedBangumi collectible, {
+    int? updatedAt,
+  }) async {
+    final event = PrivateSyncEvent.collectionUpsert(
+      eventId: await _nextEventId(),
+      deviceId: await _localStore.getDeviceId(),
+      seq: _lastSeq,
+      updatedAt: updatedAt ?? _now().millisecondsSinceEpoch,
+      bangumiItem: collectible.bangumiItem,
+      type: collectible.type,
+      collectedAt: collectible.time.millisecondsSinceEpoch,
+    );
+    await _localStore.appendEvent(event);
+  }
+
+  Set<String> _readBaselineKeys(String key) {
+    final raw = _settings.get(key, defaultValue: '').toString();
+    if (raw.trim().isEmpty) {
+      return {};
+    }
+    return raw
+        .split('\n')
+        .map((item) => item.trim())
+        .where((item) => item.isNotEmpty)
+        .toSet();
+  }
+
+  static String _encodeBaselineKeys(Iterable<String> keys) {
+    final sorted = keys
+        .map((key) => key.trim())
+        .where((key) => key.isNotEmpty)
+        .toSet()
+        .toList()
+      ..sort();
+    return sorted.join('\n');
   }
 }
 

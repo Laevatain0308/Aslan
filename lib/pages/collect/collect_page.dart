@@ -14,7 +14,9 @@ import 'package:provider/provider.dart';
 import 'package:kazumi/bean/widget/collect_button.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:kazumi/modules/collect/collect_sync_plan.dart';
+import 'package:kazumi/request/apis/private_sync_api.dart';
 import 'package:kazumi/services/storage/storage.dart';
+import 'package:kazumi/services/sync/private_sync_service.dart';
 import 'package:kazumi/utils/app_feature_flags.dart';
 
 class CollectPage extends StatefulWidget {
@@ -50,6 +52,9 @@ class _CollectPageState extends State<CollectPage>
     if (plan.shouldSyncWebDavCollectibles) {
       states.add(webDavSynced ? 'WebDav 已同步' : 'WebDav 未完成');
     }
+    if (plan.shouldSyncPrivateCollectibles) {
+      states.add('数据同步已完成');
+    }
     return states.join('，');
   }
 
@@ -72,6 +77,19 @@ class _CollectPageState extends State<CollectPage>
         webDavSynced =
             await collectController.syncCollectibles(showSuccessToast: false);
       }
+      if (plan.shouldSyncPrivateCollectibles) {
+        progressDialogKey.currentState?.update('正在同步追番状态...', null);
+        final service = PrivateSyncService();
+        await service.importExistingLocalDataIfNeeded();
+        await service.syncNow();
+        collectController.loadCollectibles();
+      }
+    } on PrivateSyncAuthenticationException {
+      await PrivateSyncService.markAuthenticationExpired(
+        const HivePrivateSyncSettingsStore(),
+      );
+      KazumiDialog.showToast(message: '同步账号已失效，请重新登录');
+      rethrow;
     } finally {
       if (KazumiDialog.observer.hasKazumiDialog) {
         KazumiDialog.dismiss();
@@ -162,11 +180,21 @@ class _CollectPageState extends State<CollectPage>
                 defaultValue: false);
             bool webDavCollectEnable = await setting
                 .get(SettingBoxKey.webDavEnableCollect, defaultValue: false);
-            final syncPlan = CollectSyncPlan(
+            final bool privateSyncEnable = await setting.get(
+              SettingBoxKey.privateSyncEnable,
+              defaultValue: false,
+            );
+            final bool privateSyncCollectEnable = await setting.get(
+              SettingBoxKey.privateSyncEnableCollect,
+              defaultValue: true,
+            );
+            final syncPlan = CollectSyncPlan.fromSettings(
               webDavFeatureEnabled: AppFeatureFlags.webDavSync,
               webDavEnabled: webDavenable,
               webDavCollectiblesEnabled: webDavCollectEnable,
               bangumiEnabled: false,
+              privateSyncEnabled: privateSyncEnable,
+              privateSyncCollectiblesEnabled: privateSyncCollectEnable,
             );
             if (!syncPlan.canSync) {
               KazumiDialog.showToast(message: '同步功能不可用，请至少开启一个同步功能');
@@ -186,6 +214,10 @@ class _CollectPageState extends State<CollectPage>
               await _runFullSync(
                 plan: syncPlan,
               );
+            } on PrivateSyncAuthenticationException {
+              // Toast and local auth state are handled in _runFullSync.
+            } catch (e) {
+              KazumiDialog.showToast(message: '同步失败：$e');
             } finally {
               if (mounted) {
                 setState(() {

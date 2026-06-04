@@ -16,5 +16,6 @@ void main() {
     expect(AppFeatureFlags.syncPlay, isFalse);
     expect(AppFeatureFlags.imageSearch, isFalse);
     expect(AppFeatureFlags.webDavSync, isFalse);
+    expect(AppFeatureFlags.pluginSources, isFalse);
   });
 }

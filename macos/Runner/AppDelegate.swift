@@ -220,7 +220,6 @@ class AppDelegate: FlutterAppDelegate {
     @IBAction func menuVolumeUp(_ sender: Any) { sendToFlutter("volumeup") }
     @IBAction func menuVolumeDown(_ sender: Any) { sendToFlutter("volumedown") }
     @IBAction func menuToggleMute(_ sender: Any) { sendToFlutter("togglemute") }
-    @IBAction func menuToggleDanmaku(_ sender: Any) { sendToFlutter("toggledanmaku") }
     @IBAction func menuSkip(_ sender: Any) { sendToFlutter("skip") }
     @IBAction func menuSpeed1(_ sender: Any) { sendToFlutter("speed1") }
     @IBAction func menuSpeed2(_ sender: Any) { sendToFlutter("speed2") }

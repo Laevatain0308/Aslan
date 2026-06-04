@@ -808,8 +808,6 @@ class _PlayerItemPanelState extends State<PlayerItemPanel> {
                         }
                         await PipUtils.updateAndroidPIPActions(
                           playing: playerController.playback.playing,
-                          danmakuEnabled: false,
-                          danmakuSupported: AppFeatureFlags.danmaku,
                           width: playerController.debug.playerWidth,
                           height: playerController.debug.playerHeight,
                         );

@@ -30,6 +30,7 @@ void main() {
         adapterName: 'LaevaBangumi',
         bangumiItem: _item(1),
         episode: 2,
+        lastWatchEpisode: 3,
         road: 0,
         progressMs: 12000,
         lastSrc: 'https://example.invalid/1',
@@ -44,6 +45,7 @@ void main() {
       expect(json['entityKey'], 'LaevaBangumi1');
       expect(json['bangumiId'], 1);
       expect((json['payload'] as Map)['progressMs'], 12000);
+      expect((json['payload'] as Map)['lastWatchEpisode'], 3);
       expect(
           ((json['payload'] as Map)['bangumiItem'] as Map)['nameCn'], '条目 1');
     });

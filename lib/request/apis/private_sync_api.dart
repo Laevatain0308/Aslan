@@ -32,6 +32,11 @@ abstract class PrivateSyncApiClient {
 
   Future<void> logout();
 
+  Future<void> clearData({
+    required bool watch,
+    required bool collection,
+  });
+
   Future<PrivateSyncDeviceRegistration> registerDevice({
     required String deviceId,
     required String deviceName,
@@ -124,6 +129,17 @@ class PrivateSyncApi implements PrivateSyncApiClient {
   @override
   Future<void> logout() async {
     await _post('/sync/logout', const {});
+  }
+
+  @override
+  Future<void> clearData({
+    required bool watch,
+    required bool collection,
+  }) async {
+    await _post('/sync/clear', {
+      'watch': watch,
+      'collection': collection,
+    });
   }
 
   @override

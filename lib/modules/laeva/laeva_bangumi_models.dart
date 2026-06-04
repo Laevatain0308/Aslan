@@ -438,6 +438,27 @@ class LaevaBangumiDetail {
   bool get hasPlayableEpisodes =>
       channels.any((channel) => channel.episodes.isNotEmpty);
 
+  int episodePositionForActualEpisode({
+    required int road,
+    required int actualEpisode,
+  }) {
+    if (road < 0 || road >= channels.length) {
+      return actualEpisode.clamp(1, 1).toInt();
+    }
+    final episodes = channels[road].episodes;
+    for (var index = 0; index < episodes.length; index++) {
+      final episode = episodes[index];
+      final uri = Uri.tryParse(episode.playUrl);
+      final queryEpisode = int.tryParse(uri?.queryParameters['ep'] ?? '');
+      if (queryEpisode == actualEpisode || episode.index == actualEpisode) {
+        return index + 1;
+      }
+    }
+    return actualEpisode
+        .clamp(1, episodes.isEmpty ? 1 : episodes.length)
+        .toInt();
+  }
+
   List<Road> toRoads() {
     return channels
         .map(

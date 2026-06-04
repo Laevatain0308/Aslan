@@ -51,6 +51,35 @@ void main() {
       expect(plan.canSync, isTrue);
     });
 
+    test('allows private collectible sync without WebDAV', () {
+      const plan = CollectSyncPlan(
+        webDavFeatureEnabled: false,
+        webDavEnabled: false,
+        webDavCollectiblesEnabled: false,
+        bangumiEnabled: false,
+        privateSyncEnabled: true,
+        privateSyncCollectiblesEnabled: true,
+      );
+
+      expect(plan.shouldSyncWebDavCollectibles, isFalse);
+      expect(plan.shouldSyncPrivateCollectibles, isTrue);
+      expect(plan.canSync, isTrue);
+    });
+
+    test('builds a private sync plan from persisted settings', () {
+      final plan = CollectSyncPlan.fromSettings(
+        webDavFeatureEnabled: false,
+        webDavEnabled: false,
+        webDavCollectiblesEnabled: false,
+        bangumiEnabled: false,
+        privateSyncEnabled: true,
+        privateSyncCollectiblesEnabled: true,
+      );
+
+      expect(plan.shouldSyncPrivateCollectibles, isTrue);
+      expect(plan.canSync, isTrue);
+    });
+
     test('blocks WebDAV collectible sync when the feature is disabled', () {
       const plan = CollectSyncPlan(
         webDavFeatureEnabled: false,

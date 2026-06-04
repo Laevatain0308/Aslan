@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 import 'package:kazumi/bean/appbar/sys_app_bar.dart';
 import 'package:kazumi/pages/menu/menu.dart';
+import 'package:kazumi/utils/app_feature_flags.dart';
 import 'package:provider/provider.dart';
 import 'package:kazumi/bean/dialog/dialog_helper.dart';
-import 'package:kazumi/utils/app_feature_flags.dart';
 
 class MyPage extends StatefulWidget {
   const MyPage({super.key});
@@ -65,28 +65,32 @@ class _MyPageState extends State<MyPage> {
                     style: TextStyle(fontFamily: fontFamily),
                   ),
                 ),
-                SettingsTile.navigation(
-                  onPressed: (_) {
-                    Modular.to.pushNamed('/settings/download/');
-                  },
-                  leading: const Icon(Icons.download_rounded),
-                  title: Text('下载管理', style: TextStyle(fontFamily: fontFamily)),
-                  description: Text(
-                    '查看和管理离线下载',
-                    style: TextStyle(fontFamily: fontFamily),
+                if (AppFeatureFlags.pluginSources) ...[
+                  SettingsTile.navigation(
+                    onPressed: (_) {
+                      Modular.to.pushNamed('/settings/download/');
+                    },
+                    leading: const Icon(Icons.download_rounded),
+                    title:
+                        Text('下载管理', style: TextStyle(fontFamily: fontFamily)),
+                    description: Text(
+                      '查看和管理离线下载',
+                      style: TextStyle(fontFamily: fontFamily),
+                    ),
                   ),
-                ),
-                SettingsTile.navigation(
-                  onPressed: (_) {
-                    Modular.to.pushNamed('/settings/download-settings');
-                  },
-                  leading: const Icon(Icons.settings_rounded),
-                  title: Text('下载设置', style: TextStyle(fontFamily: fontFamily)),
-                  description: Text(
-                    '配置下载并发数等参数',
-                    style: TextStyle(fontFamily: fontFamily),
+                  SettingsTile.navigation(
+                    onPressed: (_) {
+                      Modular.to.pushNamed('/settings/download-settings');
+                    },
+                    leading: const Icon(Icons.settings_rounded),
+                    title:
+                        Text('下载设置', style: TextStyle(fontFamily: fontFamily)),
+                    description: Text(
+                      '配置下载并发数等参数',
+                      style: TextStyle(fontFamily: fontFamily),
+                    ),
                   ),
-                ),
+                ],
                 SettingsTile.navigation(
                   onPressed: (_) {
                     Modular.to.pushNamed('/settings/server');

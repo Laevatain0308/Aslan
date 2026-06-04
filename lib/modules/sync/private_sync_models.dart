@@ -44,10 +44,12 @@ class PrivateSyncEvent {
     required String adapterName,
     required BangumiItem bangumiItem,
     required int episode,
+    required int lastWatchEpisode,
     required int road,
     required int progressMs,
     required String lastSrc,
     required String lastWatchEpisodeName,
+    int? lastWatchTime,
   }) {
     return PrivateSyncEvent(
       eventId: eventId,
@@ -64,10 +66,12 @@ class PrivateSyncEvent {
         'bangumiId': bangumiItem.id,
         'bangumiItem': PrivateSyncBangumiCodec.toJson(bangumiItem),
         'episode': episode,
+        'lastWatchEpisode': lastWatchEpisode,
         'road': road,
         'progressMs': progressMs,
         'lastSrc': lastSrc,
         'lastWatchEpisodeName': lastWatchEpisodeName,
+        if (lastWatchTime != null) 'lastWatchTime': lastWatchTime,
       },
     );
   }

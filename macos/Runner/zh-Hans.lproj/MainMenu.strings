@@ -70,9 +70,6 @@
 /* Class = "NSMenuItem"; title = "Bring All to Front"; ObjectID = "LE2-aR-0XJ"; */
 "LE2-aR-0XJ.title" = "前置全部窗口";
 
-/* Class = "NSMenuItem"; title = "Toggle Danmaku"; ObjectID = "lmU-yX-0QG"; */
-"lmU-yX-0QG.title" = "弹幕开关";
-
 /* Class = "NSMenuItem"; title = "Services"; ObjectID = "NMo-om-nkz"; */
 "NMo-om-nkz.title" = "服务";
 
@@ -144,4 +141,3 @@
 
 /* Class = "NSMenuItem"; title = "Play / Pause"; ObjectID = "Yz8-Qq-Cit"; */
 "Yz8-Qq-Cit.title" = "播放 / 暂停";
-

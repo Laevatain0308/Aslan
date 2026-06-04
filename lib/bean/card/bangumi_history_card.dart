@@ -4,12 +4,12 @@ import 'package:flutter_modular/flutter_modular.dart';
 import 'package:kazumi/bean/card/network_img_layer.dart';
 import 'package:kazumi/bean/dialog/dialog_helper.dart';
 import 'package:kazumi/bean/widget/collect_button.dart';
+import 'package:kazumi/modules/laeva/laeva_bangumi_models.dart';
 import 'package:kazumi/modules/history/history_module.dart';
 import 'package:kazumi/pages/collect/collect_controller.dart';
 import 'package:kazumi/pages/history/history_controller.dart';
 import 'package:kazumi/pages/video/video_controller.dart';
-import 'package:kazumi/plugins/plugins.dart';
-import 'package:kazumi/plugins/plugins_controller.dart';
+import 'package:kazumi/request/apis/laeva_bangumi_api.dart';
 import 'package:kazumi/services/logging/logger.dart';
 import 'package:kazumi/utils/device.dart';
 import 'package:kazumi/utils/date_time.dart';
@@ -34,7 +34,6 @@ class BangumiHistoryCardV extends StatefulWidget {
 class _BangumiHistoryCardVState extends State<BangumiHistoryCardV> {
   final VideoPageController videoPageController =
       Modular.get<VideoPageController>();
-  final PluginsController pluginsController = Modular.get<PluginsController>();
   final HistoryController historyController = Modular.get<HistoryController>();
   final CollectController collectController = Modular.get<CollectController>();
 
@@ -47,34 +46,40 @@ class _BangumiHistoryCardVState extends State<BangumiHistoryCardV> {
       msg: '获取中',
       barrierDismissible: isDesktop(),
       onDismiss: () {
-        videoPageController.cancelQueryRoads();
+        videoPageController.cancelVideoSourceResolution();
       },
     );
-    bool flag = false;
-    for (Plugin plugin in pluginsController.pluginList) {
-      if (plugin.name == widget.historyItem.adapterName) {
-        videoPageController.currentPlugin = plugin;
-        flag = true;
-        break;
-      }
-    }
-    if (!flag) {
-      KazumiDialog.dismiss();
-      KazumiDialog.showToast(message: '未找到关联番剧源');
-      return;
-    }
     videoPageController.bangumiItem = widget.historyItem.bangumiItem;
     videoPageController.title = widget.historyItem.bangumiItem.nameCn == ''
         ? widget.historyItem.bangumiItem.name
         : widget.historyItem.bangumiItem.nameCn;
     videoPageController.src = widget.historyItem.lastSrc;
     try {
-      await videoPageController.queryRoads(
-          widget.historyItem.lastSrc, videoPageController.currentPlugin.name);
+      final detail = (await LaevaBangumiApi.getDetail(
+        LaevaBangumiMetadata.apiIdFromItem(widget.historyItem.bangumiItem),
+      ))
+          ?.data;
+      if (detail == null || !detail.hasPlayableEpisodes) {
+        KazumiDialog.dismiss();
+        KazumiDialog.showToast(message: '未找到可播放剧集');
+        return;
+      }
+      detail.applyToBangumiItem(videoPageController.bangumiItem);
+      final lastProgress =
+          widget.historyItem.progresses[widget.historyItem.lastWatchEpisode];
+      final road = lastProgress?.road ?? 0;
+      videoPageController.initLaevaSource(
+        detail,
+        episode: detail.episodePositionForActualEpisode(
+          road: road,
+          actualEpisode: widget.historyItem.lastWatchEpisode,
+        ),
+        road: road,
+      );
       KazumiDialog.dismiss();
       Modular.to.pushNamed('/video/');
     } catch (_) {
-      KazumiLogger().w("PluginSearchService: failed to query roads");
+      KazumiLogger().w('HistoryCard: failed to load API playback detail');
       KazumiDialog.dismiss();
     }
   }

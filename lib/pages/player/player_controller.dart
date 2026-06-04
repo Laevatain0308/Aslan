@@ -6,7 +6,6 @@ import 'package:media_kit/media_kit.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:kazumi/services/player/external_playback_launcher.dart';
-import 'package:kazumi/pages/player/controller/player_danmaku_controller.dart';
 import 'package:kazumi/pages/player/controller/player_debug_controller.dart';
 import 'package:kazumi/pages/player/controller/player_models.dart';
 import 'package:kazumi/pages/player/controller/player_panel_controller.dart';
@@ -26,10 +25,6 @@ class PlayerController {
   final PlayerPanelController panel = PlayerPanelController();
   final PlayerDebugController debug = PlayerDebugController();
 
-  late final PlayerDanmakuController danmaku = PlayerDanmakuController(
-    setting: setting,
-    isLocalPlayback: () => isLocalPlayback,
-  );
   late final PlayerPlaybackController playback = PlayerPlaybackController(
     setting: setting,
     shaderAssetService: shaderAssetService,
@@ -208,13 +203,6 @@ class PlayerController {
 
   Future<void> setPlaybackSpeed(double playerSpeed) async {
     await playback.setPlaybackSpeed(playerSpeed);
-    try {
-      updateDanmakuSpeed();
-    } catch (_) {}
-  }
-
-  void updateDanmakuSpeed() {
-    danmaku.updateDanmakuSpeed(playback.playerSpeed);
   }
 
   Future<void> setVolume(double value) async {
@@ -233,7 +221,6 @@ class PlayerController {
     final player = playback.mediaPlayer;
     if (player == null) return;
     playback.currentPosition = duration;
-    danmaku.canvasController.clear();
     try {
       await player.seek(duration);
     } catch (_) {
@@ -250,7 +237,6 @@ class PlayerController {
   Future<void> pause({bool enableSync = true}) async {
     final player = playback.mediaPlayer;
     if (player == null) return;
-    danmaku.canvasController.pause();
     try {
       await player.pause();
     } catch (_) {
@@ -268,7 +254,6 @@ class PlayerController {
   Future<void> play({bool enableSync = true}) async {
     final player = playback.mediaPlayer;
     if (player == null) return;
-    danmaku.canvasController.resume();
     try {
       await player.play();
     } catch (_) {

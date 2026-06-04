@@ -33,7 +33,10 @@ abstract class ICollectCrudRepository {
   /// 更新收藏的番剧信息
   ///
   /// [bangumiItem] 更新后的番剧信息
-  Future<void> updateCollectible(BangumiItem bangumiItem);
+  Future<void> updateCollectible(
+    BangumiItem bangumiItem, {
+    bool syncStateChange = true,
+  });
 
   /// 删除收藏
   ///
@@ -56,8 +59,17 @@ abstract class ICollectCrudRepository {
 ///
 /// 基于Hive实现的收藏CRUD数据访问层
 class CollectCrudRepository implements ICollectCrudRepository {
+  CollectCrudRepository({
+    Future<void> Function(CollectedBangumi collectible)? appendCollectionUpsert,
+    Future<void> Function(int bangumiId)? appendCollectionDelete,
+  })  : _appendCollectionUpsert = appendCollectionUpsert,
+        _appendCollectionDelete = appendCollectionDelete;
+
   final _collectiblesBox = GStorage.collectibles;
   final _favoritesBox = GStorage.favorites;
+  final Future<void> Function(CollectedBangumi collectible)?
+      _appendCollectionUpsert;
+  final Future<void> Function(int bangumiId)? _appendCollectionDelete;
 
   @override
   List<CollectedBangumi> getAllCollectibles() {
@@ -109,7 +121,9 @@ class CollectCrudRepository implements ICollectCrudRepository {
       );
       await GStorage.putCollectible(collectedBangumi);
       await _appendPrivateSyncSafely(
-        () => PrivateSyncService().appendCollectionUpsert(collectedBangumi),
+        () =>
+            _appendCollectionUpsert?.call(collectedBangumi) ??
+            PrivateSyncService().appendCollectionUpsert(collectedBangumi),
       );
     } catch (e, stackTrace) {
       KazumiLogger().e(
@@ -122,7 +136,10 @@ class CollectCrudRepository implements ICollectCrudRepository {
   }
 
   @override
-  Future<void> updateCollectible(BangumiItem bangumiItem) async {
+  Future<void> updateCollectible(
+    BangumiItem bangumiItem, {
+    bool syncStateChange = true,
+  }) async {
     try {
       final collectible = _collectiblesBox.get(bangumiItem.id);
       if (collectible == null) {
@@ -133,9 +150,13 @@ class CollectCrudRepository implements ICollectCrudRepository {
       }
       collectible.bangumiItem = bangumiItem;
       await GStorage.putCollectible(collectible);
-      await _appendPrivateSyncSafely(
-        () => PrivateSyncService().appendCollectionUpsert(collectible),
-      );
+      if (syncStateChange) {
+        await _appendPrivateSyncSafely(
+          () =>
+              _appendCollectionUpsert?.call(collectible) ??
+              PrivateSyncService().appendCollectionUpsert(collectible),
+        );
+      }
     } catch (e, stackTrace) {
       KazumiLogger().e(
         'GStorage: update collectible failed. id=${bangumiItem.id}',
@@ -151,7 +172,9 @@ class CollectCrudRepository implements ICollectCrudRepository {
     try {
       await GStorage.deleteCollectible(id);
       await _appendPrivateSyncSafely(
-        () => PrivateSyncService().appendCollectionDelete(id),
+        () =>
+            _appendCollectionDelete?.call(id) ??
+            PrivateSyncService().appendCollectionDelete(id),
       );
     } catch (e, stackTrace) {
       KazumiLogger().e(

@@ -17,7 +17,6 @@ import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 import 'package:kazumi/pages/video/video_controller.dart';
 import 'package:window_manager/window_manager.dart';
-import 'package:canvas_danmaku/canvas_danmaku.dart';
 import 'package:kazumi/bean/dialog/dialog_helper.dart';
 import 'package:screen_brightness_platform_interface/screen_brightness_platform_interface.dart';
 import 'package:kazumi/pages/history/history_controller.dart';
@@ -85,22 +84,6 @@ class _PlayerItemState extends State<PlayerItem>
   late bool webDavEnable;
   late bool webDavEnableHistory;
 
-  // 弹幕
-  final _danmuKey = GlobalKey();
-  late bool _border;
-  late double _opacity;
-  late double _fontSize;
-  late double _danmakuArea;
-  late bool _hideTop;
-  late bool _hideBottom;
-  late bool _hideScroll;
-  late bool _massiveMode;
-  late double _danmakuDuration;
-  late double _danmakuLineHeight;
-  late int _danmakuFontWeight;
-  late bool _danmakuUseSystemFont;
-  late double _danmakuBorderSize;
-
   // 硬件解码
   late bool haEnable;
   late bool autoPlayNext;
@@ -123,7 +106,6 @@ class _PlayerItemState extends State<PlayerItem>
   double lastPlayerSpeed = 1.0;
   int episodeNum = 0;
   bool? _lastPipPlaying;
-  bool? _lastPipDanmakuEnabled;
   late mobx.ReactionDisposer _playerSizeListener;
 
   late mobx.ReactionDisposer _fullscreenListener;
@@ -141,11 +123,6 @@ class _PlayerItemState extends State<PlayerItem>
       } catch (_) {}
       return;
     }
-    try {
-      if (playerController.playback.playerPlaying) {
-        playerController.danmaku.canvasController.resume();
-      }
-    } catch (_) {}
   }
 
   Future<void> _syncAndroidAutoEnterPIPSetting() async {
@@ -185,19 +162,13 @@ class _PlayerItemState extends State<PlayerItem>
       return;
     }
     final bool playing = playerController.playback.playing;
-    const bool danmakuEnabled = false;
-    if (!force &&
-        _lastPipPlaying == playing &&
-        _lastPipDanmakuEnabled == danmakuEnabled) {
+    if (!force && _lastPipPlaying == playing) {
       return;
     }
 
     _lastPipPlaying = playing;
-    _lastPipDanmakuEnabled = danmakuEnabled;
     await PipUtils.updateAndroidPIPActions(
       playing: playing,
-      danmakuEnabled: danmakuEnabled,
-      danmakuSupported: AppFeatureFlags.danmaku,
       width: playerController.debug.playerWidth,
       height: playerController.debug.playerHeight,
     );
@@ -246,7 +217,6 @@ class _PlayerItemState extends State<PlayerItem>
       'screenshot': () async => handleScreenshot(),
       'skip': () async => skipOP(),
       'exitfullscreen': () => handleShortcutExitFullscreen(),
-      'toggledanmaku': () {},
       'speed1': () async => setPlaybackSpeed(1.0),
       'speed2': () async => setPlaybackSpeed(2.0),
       'speed3': () async => setPlaybackSpeed(3.0),
@@ -395,9 +365,6 @@ class _PlayerItemState extends State<PlayerItem>
   //退出全屏快捷键动作
   void handleShortcutExitFullscreen() {
     if (videoPageController.isFullscreen && !isTablet()) {
-      try {
-        playerController.danmaku.canvasController.clear();
-      } catch (_) {}
       DisplayModeService.exitFullScreen();
       videoPageController.isFullscreen = !videoPageController.isFullscreen;
     } else if (!Platform.isMacOS) {
@@ -487,13 +454,6 @@ class _PlayerItemState extends State<PlayerItem>
       playerController.playback.currentPosition +
           Duration(seconds: playerController.playback.buttonSkipTime),
     );
-  }
-
-  void handleDanmaku() {
-    playerController.danmaku.canvasController.clear();
-    playerController.danmaku.danmakuOn = false;
-    setting.put(SettingBoxKey.danmakuEnabledByDefault, false);
-    unawaited(_updateAndroidPIPActions(force: true));
   }
 
   Future<void> _syncHistoryWithWebDav() async {
@@ -595,7 +555,6 @@ class _PlayerItemState extends State<PlayerItem>
   void _handleFullscreenChange(BuildContext context) async {
     playerController.panel.lockPanel = false;
     _releasePlayerPanelHolds();
-    playerController.danmaku.canvasController.clear();
 
     await _syncHistoryWithWebDav();
     _syncPrivateStateInBackground('player-fullscreen-change');
@@ -922,14 +881,11 @@ class _PlayerItemState extends State<PlayerItem>
     hideTimer = null;
   }
 
-  void _emitDanmakusForCurrentPosition() {}
-
   Timer getPlayerTimer() {
     return Timer.periodic(const Duration(seconds: 1), (timer) {
       playerController.syncPlaybackState();
       unawaited(_updateAndroidPIPActions());
       _syncAudioServiceState();
-      _emitDanmakusForCurrentPosition();
       // 音量相关
       if (!playerController.panel.volumeSeeking) {
         if (isDesktop()) {
@@ -1411,9 +1367,7 @@ class _PlayerItemState extends State<PlayerItem>
   }
 
   @override
-  void onWindowRestore() {
-    playerController.danmaku.canvasController.clear();
-  }
+  void onWindowRestore() {}
 
   @override
   void initState() {
@@ -1445,12 +1399,6 @@ class _PlayerItemState extends State<PlayerItem>
               playerController.playOrPause();
               break;
 
-            case 'toggle_danmaku':
-              if (AppFeatureFlags.danmaku) {
-                handleDanmaku();
-              }
-              break;
-
             case 'forward':
               await skipOP();
               break;
@@ -1480,44 +1428,6 @@ class _PlayerItemState extends State<PlayerItem>
     webDavEnableHistory = setting.get(
       SettingBoxKey.webDavEnableHistory,
       defaultValue: false,
-    );
-    playerController.danmaku.danmakuOn = false;
-    _border = setting.get(SettingBoxKey.danmakuBorder, defaultValue: true);
-    _opacity = setting.get(SettingBoxKey.danmakuOpacity, defaultValue: 1.0);
-    _fontSize = setting.get(
-      SettingBoxKey.danmakuFontSize,
-      defaultValue: (isCompact()) ? 16.0 : 25.0,
-    );
-    _danmakuArea = setting.get(SettingBoxKey.danmakuArea, defaultValue: 1.0);
-    _hideTop = !setting.get(SettingBoxKey.danmakuTop, defaultValue: true);
-    _hideBottom = !setting.get(
-      SettingBoxKey.danmakuBottom,
-      defaultValue: false,
-    );
-    _hideScroll = !setting.get(SettingBoxKey.danmakuScroll, defaultValue: true);
-    _massiveMode = setting.get(
-      SettingBoxKey.danmakuMassive,
-      defaultValue: false,
-    );
-    _danmakuDuration = setting.get(
-      SettingBoxKey.danmakuDuration,
-      defaultValue: 8.0,
-    );
-    _danmakuLineHeight = setting.get(
-      SettingBoxKey.danmakuLineHeight,
-      defaultValue: 1.6,
-    );
-    _danmakuFontWeight = setting.get(
-      SettingBoxKey.danmakuFontWeight,
-      defaultValue: 4,
-    );
-    _danmakuUseSystemFont = setting.get(
-      SettingBoxKey.useSystemFont,
-      defaultValue: false,
-    );
-    _danmakuBorderSize = setting.get(
-      SettingBoxKey.danmakuBorderSize,
-      defaultValue: 1.5,
     );
     haEnable = setting.get(SettingBoxKey.hAenable, defaultValue: true);
     autoPlayNext = setting.get(SettingBoxKey.autoPlayNext, defaultValue: true);
@@ -1682,42 +1592,6 @@ class _PlayerItemState extends State<PlayerItem>
                           height: double.infinity,
                         ),
                       ),
-                      if (AppFeatureFlags.danmaku)
-                        Positioned(
-                          top: 0,
-                          left: 0,
-                          right: 0,
-                          height: videoPageController.isFullscreen ||
-                                  videoPageController.isPip
-                              ? MediaQuery.sizeOf(context).height
-                              : (MediaQuery.sizeOf(context).width * 9 / 16),
-                          child: DanmakuScreen(
-                            key: _danmuKey,
-                            createdController: (DanmakuController e) {
-                              playerController.danmaku.canvasController = e;
-                              WidgetsBinding.instance.addPostFrameCallback((_) {
-                                playerController.updateDanmakuSpeed();
-                              });
-                            },
-                            option: DanmakuOption(
-                              hideTop: _hideTop,
-                              hideScroll: _hideScroll,
-                              hideBottom: _hideBottom,
-                              area: _danmakuArea,
-                              opacity: _opacity,
-                              fontSize: _fontSize,
-                              duration: _danmakuDuration /
-                                  playerController.playback.playerSpeed,
-                              lineHeight: _danmakuLineHeight,
-                              strokeWidth: _border ? _danmakuBorderSize : 0.0,
-                              fontWeight: _danmakuFontWeight,
-                              massiveMode: _massiveMode,
-                              fontFamily: _danmakuUseSystemFont
-                                  ? null
-                                  : customAppFontFamily,
-                            ),
-                          ),
-                        ),
                       Positioned.fill(
                         child: PlayerScreenshotFeedbackOverlay(
                           animation: _screenshotFeedbackAnimation,

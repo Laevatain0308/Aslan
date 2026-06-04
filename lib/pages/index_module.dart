@@ -24,6 +24,7 @@ import 'package:kazumi/services/download/download_manager.dart';
 import 'package:kazumi/pages/download/download_controller.dart';
 import 'package:kazumi/bean/widget/image_preview.dart';
 import 'package:kazumi/utils/app_identity.dart';
+import 'package:kazumi/utils/app_feature_flags.dart';
 
 class IndexModule extends Module {
   @override
@@ -44,7 +45,9 @@ class IndexModule extends Module {
 
     // Controller layer
     i.addSingleton(PopularController.new);
-    i.addSingleton(PluginsController.new);
+    if (AppFeatureFlags.pluginSources) {
+      i.addSingleton(PluginsController.new);
+    }
     i.addSingleton(VideoPageController.new);
     i.addSingleton(TimelineController.new);
     i.addSingleton(CollectController.new);

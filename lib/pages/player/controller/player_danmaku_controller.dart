@@ -95,7 +95,13 @@ abstract class _PlayerDanmakuController with Store {
   final Box setting;
   final bool Function() isLocalPlayback;
 
-  late canvas.DanmakuController canvasController;
+  canvas.DanmakuController? _canvasController;
+
+  set canvasController(canvas.DanmakuController controller) {
+    _canvasController = controller;
+  }
+
+  bool get hasCanvasController => _canvasController != null;
 
   @observable
   Map<int, List<DanmakuEntry>> danDanmakus = {};
@@ -133,7 +139,19 @@ abstract class _PlayerDanmakuController with Store {
 
   void clearAndInvalidateScheduledDanmakus() {
     _scheduledDanmakuGeneration++;
-    canvasController.clear();
+    clearCanvas();
+  }
+
+  void clearCanvas() {
+    _canvasController?.clear();
+  }
+
+  void pauseCanvas() {
+    _canvasController?.pause();
+  }
+
+  void resumeCanvas() {
+    _canvasController?.resume();
   }
 
   // Fetching must not mutate current danmaku state; VideoPageController applies
@@ -326,6 +344,10 @@ abstract class _PlayerDanmakuController with Store {
   }
 
   void updateDanmakuSpeed(double playerSpeed) {
+    final canvasController = _canvasController;
+    if (canvasController == null) {
+      return;
+    }
     final baseDuration =
         setting.get(SettingBoxKey.danmakuDuration, defaultValue: 8.0);
     final followSpeed =

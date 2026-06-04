@@ -82,9 +82,11 @@ abstract class _CollectController with Store {
   }
 
   Future<void> updateLocalCollect(BangumiItem bangumiItem) async {
-    await _collectCrudRepository.updateCollectible(bangumiItem);
+    await _collectCrudRepository.updateCollectible(
+      bangumiItem,
+      syncStateChange: false,
+    );
     loadCollectibles();
-    _syncPrivateCollectiblesInBackground();
   }
 
   Future<bool> syncCollectibles({bool showSuccessToast = true}) async {

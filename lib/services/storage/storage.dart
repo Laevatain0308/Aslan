@@ -450,6 +450,12 @@ class SettingBoxKey {
       privateSyncEnableCollect = 'privateSyncEnableCollect',
       privateSyncWatchImported = 'privateSyncWatchImported',
       privateSyncCollectImported = 'privateSyncCollectImported',
+      privateSyncWatchBaseline = 'privateSyncWatchBaseline',
+      privateSyncCollectBaseline = 'privateSyncCollectBaseline',
+      privateSyncPendingLocalOverrideWatch =
+          'privateSyncPendingLocalOverrideWatch',
+      privateSyncPendingLocalOverrideCollect =
+          'privateSyncPendingLocalOverrideCollect',
       historySyncDeviceId = 'historySyncDeviceId',
       historySyncSequence = 'historySyncSequence',
       historySyncSnapshotInitialized = 'historySyncSnapshotInitialized';

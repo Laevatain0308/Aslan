@@ -307,6 +307,9 @@ abstract class _DownloadController with Store {
   }
 
   Plugin? _findPlugin(String pluginName) {
+    if (!AppFeatureFlags.pluginSources) {
+      return null;
+    }
     final pluginsController = Modular.get<PluginsController>();
     for (final plugin in pluginsController.pluginList) {
       if (plugin.name == pluginName) return plugin;
@@ -442,6 +445,10 @@ abstract class _DownloadController with Store {
     required int road,
     required String episodePageUrl,
   }) async {
+    if (!AppFeatureFlags.pluginSources) {
+      KazumiLogger().w('DownloadController: plugin source download disabled');
+      return;
+    }
     final recordKey = '${pluginName}_$bangumiId';
 
     final record = _repository.getRecord(recordKey) ??

@@ -5,4 +5,5 @@ class AppFeatureFlags {
   static bool get syncPlay => false;
   static bool get imageSearch => false;
   static bool get webDavSync => false;
+  static bool get pluginSources => false;
 }

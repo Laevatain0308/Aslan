@@ -1,16 +1,13 @@
 import 'dart:async';
 import 'package:kazumi/modules/roads/road_module.dart';
 import 'package:kazumi/modules/laeva/laeva_bangumi_models.dart';
-import 'package:kazumi/plugins/plugins_controller.dart';
 import 'package:flutter_modular/flutter_modular.dart';
-import 'package:kazumi/plugins/plugins.dart';
 import 'package:kazumi/pages/history/history_controller.dart';
 import 'package:kazumi/pages/player/player_controller.dart';
 import 'package:kazumi/modules/bangumi/bangumi_item.dart';
 import 'package:kazumi/modules/download/download_module.dart';
 import 'package:kazumi/repositories/download_repository.dart';
 import 'package:kazumi/services/download/download_manager.dart';
-import 'package:kazumi/services/video_source/services.dart';
 import 'package:kazumi/bean/dialog/dialog_helper.dart';
 import 'package:mobx/mobx.dart';
 import 'package:kazumi/services/logging/logger.dart';
@@ -20,7 +17,6 @@ import 'package:kazumi/modules/comments/comment_item.dart';
 import 'package:kazumi/modules/comments/comment_response.dart';
 import 'package:kazumi/request/apis/bangumi_api.dart';
 import 'package:kazumi/request/apis/laeva_bangumi_api.dart';
-import 'package:dio/dio.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:kazumi/services/storage/storage.dart';
 import 'package:kazumi/utils/device.dart';
@@ -34,7 +30,7 @@ class VideoPageController = _VideoPageController with _$VideoPageController;
 
 // Controller-local ownership token for async work. Keep it private so playback
 // and comment freshness checks stay inside VideoPageController instead of
-// leaking through player, danmaku, or widget APIs.
+// leaking through player or widget APIs.
 class _AsyncSessionOwner {
   int _version = 0;
 
@@ -125,11 +121,9 @@ abstract class _VideoPageController with Store {
   @observable
   bool isCommentsAscending = false;
 
-  // Playback, automatic danmaku loading, and comment loading have separate
-  // owners. Manual danmaku selection can cancel auto danmaku without touching
-  // playback; comment refreshes never cancel playback.
+  // Playback and comment loading have separate owners so comment refreshes
+  // never cancel playback.
   final _AsyncSessionOwner _playbackSessions = _AsyncSessionOwner();
-  final _AsyncSessionOwner _danmakuSessions = _AsyncSessionOwner();
   final _AsyncSessionOwner _commentSessions = _AsyncSessionOwner();
 
   @observable
@@ -152,29 +146,21 @@ abstract class _VideoPageController with Store {
   @observable
   var roadList = ObservableList<Road>();
 
-  late Plugin currentPlugin;
   LaevaBangumiDetail? laevaBangumiDetail;
   bool _isLaevaSource = false;
 
   String _offlinePluginName = '';
 
-  CancelToken? _queryRoadsCancelToken;
-
-  final PluginsController pluginsController = Modular.get<PluginsController>();
   final HistoryController historyController = Modular.get<HistoryController>();
   final IDownloadRepository downloadRepository =
       Modular.get<IDownloadRepository>();
   final IDownloadManager downloadManager = Modular.get<IDownloadManager>();
   final Box setting = GStorage.setting;
 
-  WebViewVideoSourceService? _videoSourceService;
-
   final StreamController<String> _logStreamController =
       StreamController<String>.broadcast();
 
   Stream<String> get logStream => _logStreamController.stream;
-
-  StreamSubscription<String>? _logSubscription;
 
   void initForOfflinePlayback({
     required BangumiItem bangumiItem,
@@ -250,17 +236,14 @@ abstract class _VideoPageController with Store {
     if (_isLaevaSource) {
       return laevaBangumiSourceName;
     }
-    return currentPlugin.name;
+    return laevaBangumiSourceName;
   }
 
   String get sourceReferer {
-    if (isOfflineMode || _isLaevaSource) {
-      return '';
-    }
-    return currentPlugin.referer;
+    return '';
   }
 
-  bool get supportsEpisodeDownload => !isOfflineMode && !_isLaevaSource;
+  bool get supportsEpisodeDownload => false;
 
   void initLaevaSource(
     LaevaBangumiDetail detail, {
@@ -341,9 +324,6 @@ abstract class _VideoPageController with Store {
     playingEpisode = null;
     commentsEpisode = commentEpisodeForSelection(selection);
     resetEpisodeComments();
-    _danmakuSessions.cancel();
-    playerController.danmaku.finishDanmakuLoad();
-    _videoSourceService?.cancel();
     loading = true;
     errorMessage = null;
 
@@ -372,22 +352,8 @@ abstract class _VideoPageController with Store {
       return;
     }
 
-    String chapterName =
-        roadList[selection.road].identifier[selection.episode - 1];
-    KazumiLogger().i('VideoPageController: changed to $chapterName');
-    String urlItem = roadList[selection.road].data[selection.episode - 1];
-    if (!urlItem.contains(currentPlugin.baseUrl) &&
-        !urlItem.contains(currentPlugin.baseUrl.replaceAll('https', 'http'))) {
-      urlItem = currentPlugin.baseUrl + urlItem;
-    }
-
-    await _resolveWithVideoSourceService(
-      urlItem,
-      offset,
-      selection: selection,
-      session: session,
-      playerController: playerController,
-    );
+    loading = false;
+    errorMessage = '当前版本仅支持 API 播放源';
   }
 
   Future<void> _changeOfflineEpisode(
@@ -445,7 +411,6 @@ abstract class _VideoPageController with Store {
     final initialized = await playerController.init(params);
     if (session.isActive && initialized) {
       playingEpisode = selection;
-      playerController.danmaku.finishDanmakuLoad(disableDanmaku: true);
     } else if (session.isActive) {
       _playbackSessions.cancel();
     }
@@ -548,7 +513,6 @@ abstract class _VideoPageController with Store {
       final initialized = await playerController.init(params);
       if (session.isActive && initialized) {
         playingEpisode = selection;
-        playerController.danmaku.finishDanmakuLoad(disableDanmaku: true);
       } else if (session.isActive) {
         _playbackSessions.cancel();
       }
@@ -565,10 +529,6 @@ abstract class _VideoPageController with Store {
     }
   }
 
-  void cancelAutomaticDanmakuLoad() {
-    _danmakuSessions.cancel();
-  }
-
   String? _getLocalVideoPath(
     int bangumiId,
     String pluginName,
@@ -582,101 +542,11 @@ abstract class _VideoPageController with Store {
     return downloadManager.getLocalVideoPath(episode);
   }
 
-  Future<void> _resolveWithVideoSourceService(
-    String url,
-    int offset, {
-    required VideoEpisodeSelection selection,
-    required _AsyncSession session,
-    required PlayerController playerController,
-  }) async {
-    _videoSourceService ??= WebViewVideoSourceService();
-
-    await _logSubscription?.cancel();
-    _logSubscription = _videoSourceService!.onLog.listen((log) {
-      if (!_logStreamController.isClosed) {
-        _logStreamController.add(log);
-      }
-    });
-
-    try {
-      final source = await _videoSourceService!.resolve(
-        url,
-        useLegacyParser: currentPlugin.useLegacyParser,
-        offset: offset,
-      );
-
-      if (session.isStale) {
-        return;
-      }
-      loading = false;
-      KazumiLogger().i(
-        'VideoPageController: resolved video URL: ${source.url}',
-      );
-
-      final bool forceAdBlocker = setting.get(
-        SettingBoxKey.forceAdBlocker,
-        defaultValue: false,
-      );
-
-      final params = PlaybackInitParams(
-        videoUrl: source.url,
-        offset: source.offset,
-        isLocalPlayback: false,
-        bangumiId: bangumiItem.id,
-        pluginName: currentPlugin.name,
-        episode: selection.episode,
-        httpHeaders: {
-          'user-agent': currentPlugin.userAgent.isEmpty
-              ? getRandomUA()
-              : currentPlugin.userAgent,
-          if (currentPlugin.referer.isNotEmpty)
-            'referer': currentPlugin.referer,
-        },
-        adBlockerEnabled: forceAdBlocker || currentPlugin.adBlocker,
-        episodeTitle:
-            roadList[selection.road].identifier[selection.episode - 1],
-        referer: currentPlugin.referer,
-        currentRoad: selection.road,
-        coverUrl: bangumiItem.images['large'],
-        bangumiName: bangumiItem.nameCn.isNotEmpty
-            ? bangumiItem.nameCn
-            : bangumiItem.name,
-      );
-
-      final initialized = await playerController.init(params);
-      if (session.isActive && initialized) {
-        playingEpisode = selection;
-        playerController.danmaku.finishDanmakuLoad(disableDanmaku: true);
-      } else if (session.isActive) {
-        _playbackSessions.cancel();
-      }
-    } on VideoSourceTimeoutException {
-      if (session.isStale) {
-        return;
-      }
-      loading = false;
-      errorMessage = '视频解析超时，请重试';
-    } on VideoSourceCancelledException {
-      KazumiLogger().i('VideoPageController: video URL resolution cancelled');
-    } catch (e) {
-      if (session.isStale) {
-        return;
-      }
-      loading = false;
-      errorMessage = '视频解析失败：${e.toString()}';
-    }
-  }
-
   void cancelVideoSourceResolution() {
     _playbackSessions.cancel();
-    _danmakuSessions.cancel();
-    _logSubscription?.cancel();
-    _logSubscription = null;
     if (!_logStreamController.isClosed) {
       _logStreamController.close();
     }
-    _videoSourceService?.dispose();
-    _videoSourceService = null;
   }
 
   void resetEpisodeComments() {
@@ -732,40 +602,6 @@ abstract class _VideoPageController with Store {
     return true;
   }
 
-  Future<void> queryRoads(
-    String url,
-    String pluginName, {
-    CancelToken? cancelToken,
-  }) async {
-    _isLaevaSource = false;
-    laevaBangumiDetail = null;
-    if (cancelToken != null) {
-      _queryRoadsCancelToken?.cancel();
-      _queryRoadsCancelToken = cancelToken;
-    } else {
-      _queryRoadsCancelToken?.cancel();
-      _queryRoadsCancelToken = CancelToken();
-      cancelToken = _queryRoadsCancelToken;
-    }
-
-    final PluginsController pluginsController =
-        Modular.get<PluginsController>();
-    roadList.clear();
-    for (Plugin plugin in pluginsController.pluginList) {
-      if (plugin.name == pluginName) {
-        roadList.addAll(
-          await plugin.querychapterRoads(url, cancelToken: cancelToken),
-        );
-      }
-    }
-    KazumiLogger().i(
-      'VideoPageController: road list length ${roadList.length}',
-    );
-    KazumiLogger().i(
-      'VideoPageController: first road episode count ${roadList[0].data.length}',
-    );
-  }
-
   void toggleSortOrder() {
     isCommentsAscending = !isCommentsAscending;
     episodeCommentsList.sort(
@@ -773,14 +609,6 @@ abstract class _VideoPageController with Store {
           ? a.comment.createdAt.compareTo(b.comment.createdAt)
           : b.comment.createdAt.compareTo(a.comment.createdAt),
     );
-  }
-
-  void cancelQueryRoads() {
-    if (_queryRoadsCancelToken != null) {
-      if (!_queryRoadsCancelToken!.isCancelled) {
-        _queryRoadsCancelToken!.cancel();
-      }
-    }
   }
 
   void enterFullScreen() {

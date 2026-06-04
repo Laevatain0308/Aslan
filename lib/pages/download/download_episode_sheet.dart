@@ -30,7 +30,7 @@ class _DownloadEpisodeSheetState extends State<DownloadEpisodeSheet> {
   Widget build(BuildContext context) {
     final record = downloadController.getRecord(
       videoPageController.bangumiItem.id,
-      videoPageController.currentPlugin.name,
+      videoPageController.sourceName,
     );
     final downloadedUrls = <String>{};
     if (record != null) {
@@ -227,7 +227,6 @@ class _DownloadEpisodeSheetState extends State<DownloadEpisodeSheet> {
   void _startBatchDownload(BuildContext context) {
     Navigator.pop(context);
 
-    final plugin = videoPageController.currentPlugin;
     final bangumiItem = videoPageController.bangumiItem;
 
     final sortedEpisodes = _selectedEpisodes.toList()..sort();
@@ -242,7 +241,7 @@ class _DownloadEpisodeSheetState extends State<DownloadEpisodeSheet> {
             ? bangumiItem.nameCn
             : bangumiItem.name,
         bangumiCover: bangumiItem.images['large'] ?? '',
-        pluginName: plugin.name,
+        pluginName: videoPageController.sourceName,
         episodeNumber: episodeNumber,
         episodeName: identifier,
         road: widget.road,

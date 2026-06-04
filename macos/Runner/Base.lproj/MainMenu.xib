@@ -213,12 +213,6 @@
                                 </connections>
                             </menuItem>
                             <menuItem isSeparatorItem="YES" id="dKr-8P-RX9"/>
-                            <menuItem title="Toggle Danmaku" id="lmU-yX-0QG">
-                                <modifierMask key="keyEquivalentModifierMask"/>
-                                <connections>
-                                    <action selector="menuToggleDanmaku:" target="-1" id="v0C-DN-WQV"/>
-                                </connections>
-                            </menuItem>
                             <menuItem title="Speed" id="weg-Na-dVX">
                                 <modifierMask key="keyEquivalentModifierMask"/>
                                 <menu key="submenu" title="Speed" id="FYI-7j-0Xf">

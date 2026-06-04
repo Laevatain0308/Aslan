@@ -1,5 +1,4 @@
 import 'package:kazumi/pages/about/about_module.dart';
-import 'package:kazumi/pages/plugin_editor/plugin_module.dart';
 import 'package:flutter_modular/flutter_modular.dart';
 import 'package:kazumi/pages/history/history_module.dart';
 import 'package:kazumi/pages/settings/interface_settings.dart';
@@ -32,9 +31,10 @@ class SettingsModule extends Module {
       r.module("/webdav", module: WebDavModule());
     }
     r.module("/about", module: AboutModule());
-    r.module("/plugin", module: PluginModule());
     r.module("/history", module: HistoryModule());
-    r.module("/download", module: DownloadModule());
-    r.child("/download-settings", child: (_) => const DownloadSettingsPage());
+    if (AppFeatureFlags.pluginSources) {
+      r.module("/download", module: DownloadModule());
+      r.child("/download-settings", child: (_) => const DownloadSettingsPage());
+    }
   }
 }
