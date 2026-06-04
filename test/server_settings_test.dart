@@ -124,6 +124,82 @@ void main() {
       expect(_textFieldByLabel(tester, '同步密钥').readOnly, isTrue);
     });
   });
+
+  group('ServerSettingsPage sync actions', () {
+    testWidgets('disables immediate sync when logged out', (tester) async {
+      await tester.pumpWidget(
+        _actionButtons(
+          canTestConnection: false,
+          canSyncNow: false,
+        ),
+      );
+
+      final syncButton = tester.widget<FilledButton>(
+        find.ancestor(
+          of: find.text('立即同步'),
+          matching: find.byType(FilledButton),
+        ),
+      );
+
+      expect(syncButton.onPressed, isNull);
+    });
+
+    testWidgets('disables immediate sync when sync switch is off',
+        (tester) async {
+      await tester.pumpWidget(
+        _actionButtons(
+          canTestConnection: true,
+          canSyncNow: false,
+        ),
+      );
+
+      final syncButton = tester.widget<FilledButton>(
+        find.ancestor(
+          of: find.text('立即同步'),
+          matching: find.byType(FilledButton),
+        ),
+      );
+
+      expect(syncButton.onPressed, isNull);
+    });
+
+    testWidgets('enables immediate sync only when logged in and sync is on',
+        (tester) async {
+      var synced = false;
+      await tester.pumpWidget(
+        _actionButtons(
+          canTestConnection: true,
+          canSyncNow: true,
+          onSyncNow: () {
+            synced = true;
+          },
+        ),
+      );
+
+      await tester.tap(find.text('立即同步'));
+
+      expect(synced, isTrue);
+    });
+  });
+}
+
+Widget _actionButtons({
+  required bool canTestConnection,
+  required bool canSyncNow,
+  VoidCallback? onSyncNow,
+}) {
+  return MaterialApp(
+    home: Scaffold(
+      body: PrivateSyncActionButtons(
+        syncing: false,
+        canTestConnection: canTestConnection,
+        canSyncNow: canSyncNow,
+        onTestConnection: () {},
+        onSave: () {},
+        onSyncNow: onSyncNow ?? () {},
+      ),
+    ),
+  );
 }
 
 TextField _textFieldByLabel(WidgetTester tester, String label) {

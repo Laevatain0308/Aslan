@@ -37,6 +37,7 @@ class _ServerSettingsPageState extends State<ServerSettingsPage> {
   String syncDisplayName = '';
 
   bool get isSyncAccountLoggedIn => tokenController.text.trim().isNotEmpty;
+  bool get canUsePrivateSync => isSyncAccountLoggedIn && privateSyncEnable;
   bool get isPrivateSyncPersistedEnabled =>
       setting.get(SettingBoxKey.privateSyncEnable, defaultValue: false) == true;
   PrivateSyncEnableState get privateSyncEnableState => PrivateSyncEnableState(
@@ -415,6 +416,10 @@ class _ServerSettingsPageState extends State<ServerSettingsPage> {
   }
 
   Future<void> testPrivateSyncStatus() async {
+    if (!isSyncAccountLoggedIn) {
+      KazumiDialog.showToast(message: '请先登录同步账号');
+      return;
+    }
     if (!await savePrivateSyncSettings(showToast: false)) {
       return;
     }
@@ -447,6 +452,14 @@ class _ServerSettingsPageState extends State<ServerSettingsPage> {
     bool? forceWatchSnapshot,
     bool? forceCollectionSnapshot,
   }) async {
+    if (!isSyncAccountLoggedIn) {
+      KazumiDialog.showToast(message: '请先登录同步账号');
+      return;
+    }
+    if (!privateSyncEnable) {
+      KazumiDialog.showToast(message: '请先开启数据同步');
+      return;
+    }
     final enableState = privateSyncEnableState;
     final shouldForceLocalSnapshot =
         forceLocalSnapshot ?? enableState.requiresEnableStrategy;
@@ -595,65 +608,92 @@ class _ServerSettingsPageState extends State<ServerSettingsPage> {
             title: const Text('同步追番状态'),
           ),
           const SizedBox(height: 12),
-          Wrap(
-            alignment: WrapAlignment.end,
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              OutlinedButton.icon(
-                onPressed: syncing ? null : testPrivateSyncStatus,
-                icon: const Icon(Icons.cloud_done_rounded),
-                label: const Text('测试连接'),
-              ),
-              OutlinedButton.icon(
-                onPressed: syncing
-                    ? null
-                    : () async {
-                        final enablingNow =
-                            privateSyncEnableState.requiresEnableStrategy;
-                        final forceWatchSnapshot =
-                            privateSyncEnableState.newlyEnabledWatch;
-                        final forceCollectionSnapshot =
-                            privateSyncEnableState.newlyEnabledCollect;
-                        final strategy =
-                            await preparePrivateSyncEnableStrategy();
-                        if (strategy == null) {
-                          setState(() {
-                            restorePersistedSyncSwitches();
-                          });
-                          return;
-                        }
-                        if (!await savePrivateSyncSettings(
-                            showToast: !privateSyncEnable)) {
-                          return;
-                        }
-                        if (privateSyncEnable) {
-                          await syncPrivateNow(
-                            strategy: strategy,
-                            forceLocalSnapshot: enablingNow,
-                            forceWatchSnapshot: forceWatchSnapshot,
-                            forceCollectionSnapshot: forceCollectionSnapshot,
-                          );
-                        }
-                      },
-                icon: const Icon(Icons.save_rounded),
-                label: const Text('保存同步设置'),
-              ),
-              FilledButton.icon(
-                onPressed: syncing ? null : () => syncPrivateNow(),
-                icon: syncing
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.sync_rounded),
-                label: const Text('立即同步'),
-              ),
-            ],
+          PrivateSyncActionButtons(
+            syncing: syncing,
+            canTestConnection: isSyncAccountLoggedIn,
+            canSyncNow: canUsePrivateSync,
+            onTestConnection: testPrivateSyncStatus,
+            onSave: () async {
+              final enablingNow = privateSyncEnableState.requiresEnableStrategy;
+              final forceWatchSnapshot =
+                  privateSyncEnableState.newlyEnabledWatch;
+              final forceCollectionSnapshot =
+                  privateSyncEnableState.newlyEnabledCollect;
+              final strategy = await preparePrivateSyncEnableStrategy();
+              if (strategy == null) {
+                setState(() {
+                  restorePersistedSyncSwitches();
+                });
+                return;
+              }
+              if (!await savePrivateSyncSettings(
+                  showToast: !privateSyncEnable)) {
+                return;
+              }
+              if (privateSyncEnable) {
+                await syncPrivateNow(
+                  strategy: strategy,
+                  forceLocalSnapshot: enablingNow,
+                  forceWatchSnapshot: forceWatchSnapshot,
+                  forceCollectionSnapshot: forceCollectionSnapshot,
+                );
+              }
+            },
+            onSyncNow: syncPrivateNow,
           ),
         ],
       ),
+    );
+  }
+}
+
+class PrivateSyncActionButtons extends StatelessWidget {
+  const PrivateSyncActionButtons({
+    super.key,
+    required this.syncing,
+    required this.canTestConnection,
+    required this.canSyncNow,
+    required this.onTestConnection,
+    required this.onSave,
+    required this.onSyncNow,
+  });
+
+  final bool syncing;
+  final bool canTestConnection;
+  final bool canSyncNow;
+  final VoidCallback onTestConnection;
+  final VoidCallback onSave;
+  final VoidCallback onSyncNow;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      alignment: WrapAlignment.end,
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        OutlinedButton.icon(
+          onPressed: syncing || !canTestConnection ? null : onTestConnection,
+          icon: const Icon(Icons.cloud_done_rounded),
+          label: const Text('测试连接'),
+        ),
+        OutlinedButton.icon(
+          onPressed: syncing ? null : onSave,
+          icon: const Icon(Icons.save_rounded),
+          label: const Text('保存同步设置'),
+        ),
+        FilledButton.icon(
+          onPressed: syncing || !canSyncNow ? null : onSyncNow,
+          icon: syncing
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.sync_rounded),
+          label: const Text('立即同步'),
+        ),
+      ],
     );
   }
 }
