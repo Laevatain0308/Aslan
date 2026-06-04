@@ -1,1 +1,1 @@
-An anime collection app based on custom rules.
+An anime collection app using a custom data source server.

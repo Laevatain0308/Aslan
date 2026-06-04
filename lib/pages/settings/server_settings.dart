@@ -50,10 +50,9 @@ class _ServerSettingsPageState extends State<ServerSettingsPage> {
   }
 
   Future<void> resetServerUrl() async {
-    const value = ApiEndpoints.laevaBangumiDefaultApiBase;
-    serverController.text = value;
-    await setting.put(SettingBoxKey.laevaBangumiServerUrl, value);
-    KazumiDialog.showToast(message: '已恢复默认服务器地址');
+    serverController.clear();
+    await setting.delete(SettingBoxKey.laevaBangumiServerUrl);
+    KazumiDialog.showToast(message: '已清除服务器地址');
   }
 
   @override
@@ -67,8 +66,8 @@ class _ServerSettingsPageState extends State<ServerSettingsPage> {
             controller: serverController,
             keyboardType: TextInputType.url,
             decoration: const InputDecoration(
-              labelText: 'LaevaBangumi API 地址',
-              hintText: ApiEndpoints.laevaBangumiDefaultApiBase,
+              labelText: '数据源服务器地址',
+              hintText: '请输入兼容的数据源 API 地址',
               border: OutlineInputBorder(),
             ),
             onSubmitted: (_) => saveServerUrl(),
@@ -77,7 +76,7 @@ class _ServerSettingsPageState extends State<ServerSettingsPage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              TextButton(onPressed: resetServerUrl, child: const Text('恢复默认')),
+              TextButton(onPressed: resetServerUrl, child: const Text('清除')),
               const SizedBox(width: 8),
               FilledButton(onPressed: saveServerUrl, child: const Text('保存')),
             ],

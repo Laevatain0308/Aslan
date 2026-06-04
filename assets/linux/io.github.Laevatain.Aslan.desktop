@@ -1,6 +1,6 @@
 [Desktop Entry]
 Name=Aslan
-Comment=Watch anime online with custom rules.
+Comment=Watch anime online with a custom data source server.
 Comment[zh_CN]=一款好用的追番软件
 Exec=aslan
 StartupWMClass=aslan

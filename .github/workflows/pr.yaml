@@ -368,8 +368,8 @@
               Architecture: amd64
               Essential: no
               Installed-Size: 34648
-              Description: Watch anime online with custom rules.
-              Homepage: https://github.com/Laevatain/Aslan
+              Description: Watch anime online with a custom data source server.
+              Homepage: https://github.com/Laevatain0308/Aslan
               Depends: libayatana-appindicator3-1,
                        gir1.2-ayatanaappindicator3-0.1,
                        libwebkit2gtk-4.1-0

@@ -4,7 +4,7 @@ class AppIdentity {
   static const String name = 'Aslan';
   static const String executableName = 'aslan';
   static const String description =
-      'A Flutter anime collection and online watching app based on custom rules.';
+      'A Flutter anime collection and online watching app using a user-configured data source server.';
 
   static const String maintainer = 'Laevatain';
   static const String sourceUrl = 'https://github.com/Laevatain0308/Aslan';

@@ -6,14 +6,17 @@ class ApiEndpoints {
   static const int apiLevel = 7;
 
   /// 项目主页
-  static const String projectUrl = "https://github.com/Laevatain/Aslan";
+  static const String projectUrl = "https://github.com/Laevatain0308/Aslan";
 
   /// Github 项目主页
-  static const String sourceUrl = "https://github.com/Laevatain/Aslan";
+  static const String sourceUrl = "https://github.com/Laevatain0308/Aslan";
 
-  /// LaevaBangumi API
-  static const String laevaBangumiDefaultApiBase =
-      'https://www.laevatain.top/anime/api';
+  /// Default data source API.
+  ///
+  /// Aslan intentionally does not publish a bundled data source URL. Users must
+  /// configure their own compatible server in settings before network data can
+  /// be loaded.
+  static const String laevaBangumiDefaultApiBase = '';
 
   /// 规则仓库
   static const String pluginShop =
@@ -21,7 +24,7 @@ class ApiEndpoints {
 
   /// 在线升级
   static const String latestApp =
-      'https://api.github.com/repos/Laevatain/Aslan/releases/latest';
+      'https://api.github.com/repos/Laevatain0308/Aslan/releases/latest';
 
   /// Github镜像
   static const String gitMirror = 'https://ghfast.top/';

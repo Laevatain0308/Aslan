@@ -1,1 +1,1 @@
-A Flutter app for collecting and watching anime online with custom rules. Use up to five lines of XPath expressions to build your own rules. Supports rule import and rule sharing. Aslan is a fork of Kazumi and is not an official Kazumi release.
+A Flutter app for collecting and watching anime online using a user-configured compatible data source server.

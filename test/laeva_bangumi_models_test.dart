@@ -4,11 +4,13 @@ import 'package:kazumi/request/config/api_endpoints.dart';
 
 void main() {
   group('LaevaBangumi', () {
-    test('uses the www.laevatain.top API as the default server', () {
+    test('does not publish a default API server', () {
       expect(
         ApiEndpoints.laevaBangumiDefaultApiBase,
-        'https://www.laevatain.top/anime/api',
+        isEmpty,
       );
+      expect(ApiEndpoints.laevaBangumiDefaultApiBase,
+          isNot(contains('laevatain')));
     });
 
     test('uses the search result id as the Bangumi subject id', () {
@@ -17,7 +19,7 @@ void main() {
         'title': '和班上第二可爱的女孩成为朋友',
         'name': 'クラスで2番目に可愛い女の子と友だちになった',
         'nameCn': '和班上第二可爱的女孩成为朋友',
-        'coverUrl': 'https://img.laevatain.top/cover/456079.jpg',
+        'coverUrl': 'https://example.invalid/cover/456079.jpg',
         'summary': '搜索简介',
         'airDate': '2026-04-01',
         'airWeekday': 3,
@@ -57,7 +59,7 @@ void main() {
       final item = LaevaBangumiUpdateItem.fromJson({
         'id': 580133,
         'title': '欺诈游戏',
-        'coverUrl': 'https://img.laevatain.top/cover/580133.jpg',
+        'coverUrl': 'https://example.invalid/cover/580133.jpg',
         'summary': '突然届けられた1億円と謎の招待状',
         'name': 'ライアーゲーム',
         'nameCn': '欺诈游戏',
@@ -110,7 +112,7 @@ void main() {
             'title': '尖帽子的魔法工房',
             'name': 'とんがり帽子のアトリエ',
             'nameCn': '尖帽子的魔法工房',
-            'coverUrl': 'https://img.laevatain.top/cover/377130.jpg',
+            'coverUrl': 'https://example.invalid/cover/377130.jpg',
             'summary': '魔法工房简介',
             'ratingScore': 7.6,
             'rank': 900,
@@ -156,7 +158,7 @@ void main() {
         'name': '原名',
         'nameCn': '中文标题',
         'summary': '简介',
-        'coverUrl': 'https://img.laevatain.top/cover/547888.jpg',
+        'coverUrl': 'https://example.invalid/cover/547888.jpg',
         'eps': 12,
         'totalEpisodes': 12,
         'airDate': '2026-04-01',

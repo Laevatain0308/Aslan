@@ -26,9 +26,11 @@ class LaevaBangumiApi {
         )
         .toString()
         .trim();
-    final value =
-        stored.isEmpty ? ApiEndpoints.laevaBangumiDefaultApiBase : stored;
-    return value.replaceFirst(RegExp(r'/+$'), '');
+    final value = stored.replaceFirst(RegExp(r'/+$'), '');
+    if (value.isEmpty) {
+      throw const LaevaBangumiApiException('请先在设置中配置数据源服务器地址');
+    }
+    return value;
   }
 
   static Future<LaevaBangumiApiEnvelope<List<LaevaBangumiUpdateItem>>>
