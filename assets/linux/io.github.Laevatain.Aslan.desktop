@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=Aslan
+Comment=Watch anime online with custom rules.
+Comment[zh_CN]=一款好用的追番软件
+Exec=aslan
+StartupWMClass=aslan
+Icon=io.github.Laevatain.Aslan
+Terminal=false
+Type=Application
+Categories=AudioVideo;Audio;Video;

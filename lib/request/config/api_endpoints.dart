@@ -6,17 +6,14 @@ class ApiEndpoints {
   static const int apiLevel = 7;
 
   /// 项目主页
-  static const String projectUrl = "https://kazumi.app/";
+  static const String projectUrl = "https://github.com/Laevatain/Aslan";
 
   /// Github 项目主页
-  static const String sourceUrl = "https://github.com/Predidit/Kazumi";
+  static const String sourceUrl = "https://github.com/Laevatain/Aslan";
 
   /// LaevaBangumi API
   static const String laevaBangumiDefaultApiBase =
       'https://www.laevatain.top/anime/api';
-
-  /// 图标作者
-  static const String iconUrl = "https://www.pixiv.net/users/66219277";
 
   /// 规则仓库
   static const String pluginShop =
@@ -24,7 +21,7 @@ class ApiEndpoints {
 
   /// 在线升级
   static const String latestApp =
-      'https://api.github.com/repos/Predidit/Kazumi/releases/latest';
+      'https://api.github.com/repos/Laevatain/Aslan/releases/latest';
 
   /// Github镜像
   static const String gitMirror = 'https://ghfast.top/';

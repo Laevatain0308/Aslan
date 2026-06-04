@@ -10,6 +10,7 @@ import 'package:kazumi/repositories/collect_repository.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:mobx/mobx.dart';
 import 'package:kazumi/services/logging/logger.dart';
+import 'package:kazumi/utils/app_feature_flags.dart';
 
 part 'collect_controller.g.dart';
 
@@ -79,6 +80,9 @@ abstract class _CollectController with Store {
   }
 
   Future<bool> syncCollectibles({bool showSuccessToast = true}) async {
+    if (!AppFeatureFlags.webDavSync) {
+      return false;
+    }
     final bool webDavCollectEnable =
         setting.get(SettingBoxKey.webDavEnableCollect, defaultValue: false);
     if (!webDavCollectEnable) {
@@ -117,6 +121,9 @@ abstract class _CollectController with Store {
   /// Used by full sync to push Bangumi-updated local changes back to WebDAV.
   Future<bool> uploadCollectiblesToWebDav(
       {bool showSuccessToast = true}) async {
+    if (!AppFeatureFlags.webDavSync) {
+      return false;
+    }
     final bool webDavCollectEnable =
         setting.get(SettingBoxKey.webDavEnableCollect, defaultValue: false);
     if (!webDavCollectEnable) {

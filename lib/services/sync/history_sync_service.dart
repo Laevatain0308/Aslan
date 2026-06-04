@@ -4,6 +4,7 @@ import 'package:kazumi/modules/history/history_module.dart';
 import 'package:kazumi/modules/history/history_sync.dart';
 import 'package:kazumi/services/logging/logger.dart';
 import 'package:kazumi/services/storage/storage.dart';
+import 'package:kazumi/utils/app_feature_flags.dart';
 import 'package:path_provider/path_provider.dart';
 
 class HistorySyncService {
@@ -140,6 +141,9 @@ class HistorySyncService {
   }
 
   Future<void> appendSafely(Future<void> Function() append) async {
+    if (!AppFeatureFlags.webDavSync) {
+      return;
+    }
     final webDavEnable =
         GStorage.setting.get(SettingBoxKey.webDavEnable, defaultValue: false);
     final historySyncEnable = GStorage.setting.get(

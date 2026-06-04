@@ -1,16 +1,18 @@
 class CollectSyncPlan {
   const CollectSyncPlan({
+    required this.webDavFeatureEnabled,
     required this.webDavEnabled,
     required this.webDavCollectiblesEnabled,
     required this.bangumiEnabled,
   });
 
+  final bool webDavFeatureEnabled;
   final bool webDavEnabled;
   final bool webDavCollectiblesEnabled;
   final bool bangumiEnabled;
 
   bool get shouldSyncWebDavCollectibles =>
-      webDavEnabled && webDavCollectiblesEnabled;
+      webDavFeatureEnabled && webDavEnabled && webDavCollectiblesEnabled;
 
   bool get shouldSyncBangumi => bangumiEnabled;
 

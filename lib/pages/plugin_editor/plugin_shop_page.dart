@@ -213,8 +213,11 @@ class _PluginShopPageState extends State<PluginShopPage> {
         errMsg: '啊咧（⊙.⊙） 无法访问远程仓库\n${enableGitProxy ? '镜像已启用' : '镜像已禁用'}',
         actions: [
           GeneralErrorButton(
-            onPressed: () {
-              Modular.to.pushNamed('/settings/webdav/');
+            onPressed: () async {
+              enableGitProxy = !enableGitProxy;
+              await setting.put(SettingBoxKey.enableGitProxy, enableGitProxy);
+              setState(() {});
+              _handleRefresh();
             },
             text: enableGitProxy ? '禁用镜像' : '启用镜像',
           ),

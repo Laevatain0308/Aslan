@@ -14,6 +14,7 @@ import 'package:kazumi/pages/webdav_editor/webdav_module.dart';
 import 'package:kazumi/pages/settings/keyboard_settings.dart';
 import 'package:kazumi/pages/settings/download_settings.dart';
 import 'package:kazumi/pages/download/download_page_module.dart';
+import 'package:kazumi/utils/app_feature_flags.dart';
 
 class SettingsModule extends Module {
   @override
@@ -27,7 +28,9 @@ class SettingsModule extends Module {
     r.child("/interface", child: (_) => const InterfaceSettingsPage());
     r.child("/server", child: (_) => const ServerSettingsPage());
     r.child("/player/super", child: (_) => const SuperResolutionSettings());
-    r.module("/webdav", module: WebDavModule());
+    if (AppFeatureFlags.webDavSync) {
+      r.module("/webdav", module: WebDavModule());
+    }
     r.module("/about", module: AboutModule());
     r.module("/plugin", module: PluginModule());
     r.module("/history", module: HistoryModule());

@@ -17,6 +17,7 @@ import 'package:kazumi/pages/download/download_controller.dart';
 import 'package:kazumi/services/download/background_download_service.dart';
 import 'package:kazumi/services/platform/windows_shortcut.dart';
 import 'package:kazumi/services/platform/platform_environment_service.dart';
+import 'package:kazumi/utils/app_feature_flags.dart';
 
 class InitPage extends StatefulWidget {
   const InitPage({super.key});
@@ -47,7 +48,9 @@ class _InitPageState extends State<InitPage> {
     _migrateStorage();
     _loadShaders();
     _loadDanmakuShield();
-    _webDavInit();
+    if (AppFeatureFlags.webDavSync) {
+      _webDavInit();
+    }
     try {
       await downloadController.init();
       _setupBackgroundDownloadNavigation();
@@ -178,7 +181,7 @@ class _InitPageState extends State<InitPage> {
             child: AlertDialog(
               title: const Text('X11环境检测'),
               content: const Text(
-                  '检测到您当前运行在X11环境下，Kazumi在X11环境下可能出现性能问题或界面异常，建议切换到Wayland以获得更好的体验。您是否希望在X11下继续使用Kazumi？'),
+                  '检测到您当前运行在X11环境下，Aslan在X11环境下可能出现性能问题或界面异常，建议切换到Wayland以获得更好的体验。您是否希望在X11下继续使用Aslan？'),
               actions: [
                 TextButton(
                   onPressed: () {
@@ -214,7 +217,7 @@ class _InitPageState extends State<InitPage> {
       clickMaskDismiss: false,
       builder: (context) => AlertDialog(
         title: const Text('创建桌面快捷方式'),
-        content: const Text('是否在桌面创建 Kazumi 的快捷方式？'),
+        content: const Text('是否在桌面创建 Aslan 的快捷方式？'),
         actions: [
           TextButton(
             onPressed: () => KazumiDialog.dismiss(popWith: false),

@@ -13,6 +13,7 @@ import 'package:kazumi/utils/format.dart';
 import 'package:kazumi/services/logging/logger.dart';
 import 'package:kazumi/services/storage/storage.dart';
 import 'package:kazumi/services/video_source/services.dart';
+import 'package:kazumi/utils/app_feature_flags.dart';
 import 'package:kazumi/request/apis/danmaku_api.dart';
 import 'package:mobx/mobx.dart';
 
@@ -587,7 +588,7 @@ abstract class _DownloadController with Store {
     final Box setting = GStorage.setting;
     final bool downloadDanmaku =
         setting.get(SettingBoxKey.downloadDanmaku, defaultValue: true);
-    if (downloadDanmaku) {
+    if (AppFeatureFlags.danmaku && downloadDanmaku) {
       _fetchAndCacheDanmakuAsync(
         request.recordKey,
         request.bangumiId,

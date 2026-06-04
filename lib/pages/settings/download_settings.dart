@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:kazumi/bean/appbar/sys_app_bar.dart';
 import 'package:kazumi/services/storage/storage.dart';
+import 'package:kazumi/utils/app_feature_flags.dart';
 import 'package:card_settings_ui/card_settings_ui.dart';
 
 class DownloadSettingsPage extends StatefulWidget {
@@ -99,23 +100,24 @@ class _DownloadSettingsPageState extends State<DownloadSettingsPage> {
               ),
             ],
           ),
-          SettingsSection(
-            title: Text('缓存设置', style: TextStyle(fontFamily: fontFamily)),
-            tiles: [
-              SettingsTile.switchTile(
-                onToggle: (value) {
-                  setState(() => downloadDanmaku = value ?? !downloadDanmaku);
-                  setting.put(SettingBoxKey.downloadDanmaku, downloadDanmaku);
-                },
-                title: Text('缓存弹幕', style: TextStyle(fontFamily: fontFamily)),
-                description: Text(
-                  '下载视频时同时缓存弹幕数据',
-                  style: TextStyle(fontFamily: fontFamily),
+          if (AppFeatureFlags.danmaku)
+            SettingsSection(
+              title: Text('缓存设置', style: TextStyle(fontFamily: fontFamily)),
+              tiles: [
+                SettingsTile.switchTile(
+                  onToggle: (value) {
+                    setState(() => downloadDanmaku = value ?? !downloadDanmaku);
+                    setting.put(SettingBoxKey.downloadDanmaku, downloadDanmaku);
+                  },
+                  title: Text('缓存弹幕', style: TextStyle(fontFamily: fontFamily)),
+                  description: Text(
+                    '下载视频时同时缓存弹幕数据',
+                    style: TextStyle(fontFamily: fontFamily),
+                  ),
+                  initialValue: downloadDanmaku,
                 ),
-                initialValue: downloadDanmaku,
-              ),
-            ],
-          ),
+              ],
+            ),
           SettingsSection(
             title: Text('说明', style: TextStyle(fontFamily: fontFamily)),
             tiles: [

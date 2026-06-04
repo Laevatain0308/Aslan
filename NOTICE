@@ -1,0 +1,28 @@
+Aslan
+=====
+
+Aslan is a fork and modified version of Kazumi.
+
+Upstream project:
+  Kazumi
+  https://github.com/Predidit/Kazumi
+
+Upstream authors and contributors:
+  Predidit and Kazumi contributors
+  https://github.com/Predidit/Kazumi/graphs/contributors
+
+Aslan modifications:
+  Maintained by Laevatain from 2026.
+  The project identity, public package metadata, visible feature entry points,
+  attribution text, and application icon assets have been changed for Aslan.
+
+License:
+  This project remains licensed under GNU General Public License version 3.
+  See LICENSE for the full license text.
+
+Trademark and branding notice:
+  Aslan is not an official Kazumi release. References to Kazumi identify the
+  upstream project and original source only.
+
+Icon notice:
+  Aslan does not use the original Kazumi icon described in the upstream README.

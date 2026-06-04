@@ -15,6 +15,7 @@ import 'package:provider/provider.dart';
 import 'package:kazumi/utils/constants.dart';
 import 'package:kazumi/utils/device.dart';
 import 'package:kazumi/utils/theme.dart';
+import 'package:kazumi/utils/app_identity.dart';
 
 class AppWidget extends StatefulWidget {
   const AppWidget({super.key});
@@ -220,7 +221,7 @@ class _AppWidgetState extends State<AppWidget>
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Text('您想要退出 Kazumi 吗？'),
+                const Text('您想要退出 ${AppIdentity.name} 吗？'),
                 const SizedBox(height: 24),
                 StatefulBuilder(builder: (context, setState) {
                   onChanged(value) {
@@ -247,7 +248,7 @@ class _AppWidgetState extends State<AppWidget>
                     }
                     exit(0);
                   },
-                  child: const Text('退出 Kazumi')),
+                  child: const Text('退出 ${AppIdentity.name}')),
               TextButton(
                   onPressed: () async {
                     if (saveExitBehavior) {
@@ -298,19 +299,19 @@ class _AppWidgetState extends State<AppWidget>
       await trayManager.setIcon('assets/images/logo/logo_lanczos.ico');
     } else if (Platform.environment.containsKey('FLATPAK_ID') ||
         Platform.environment.containsKey('SNAP')) {
-      await trayManager.setIcon('io.github.Predidit.Kazumi');
+      await trayManager.setIcon('io.github.Laevatain.Aslan');
     } else {
       await trayManager.setIcon('assets/images/logo/logo_rounded.png');
     }
 
     if (!Platform.isLinux) {
-      await trayManager.setToolTip('Kazumi');
+      await trayManager.setToolTip(AppIdentity.name);
     }
 
     Menu trayMenu = Menu(items: [
       MenuItem(key: 'show_window', label: '显示窗口'),
       MenuItem.separator(),
-      MenuItem(key: 'exit', label: '退出 Kazumi')
+      MenuItem(key: 'exit', label: '退出 ${AppIdentity.name}')
     ]);
     await trayManager.setContextMenu(trayMenu);
   }
@@ -344,7 +345,7 @@ class _AppWidgetState extends State<AppWidget>
             : dynamicDarkTheme;
 
         return MaterialApp.router(
-          title: "Kazumi",
+          title: AppIdentity.name,
           localizationsDelegates: GlobalMaterialLocalizations.delegates,
           supportedLocales: const [
             Locale.fromSubtags(

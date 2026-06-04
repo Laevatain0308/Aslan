@@ -8,8 +8,8 @@ import 'package:kazumi/bean/appbar/sys_app_bar.dart';
 import 'package:kazumi/bean/dialog/dialog_helper.dart';
 import 'package:kazumi/pages/my/my_controller.dart';
 import 'package:kazumi/request/config/api_endpoints.dart';
-import 'package:kazumi/utils/dandan_credentials.dart';
 import 'package:kazumi/services/storage/storage.dart';
+import 'package:kazumi/utils/app_identity.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:kazumi/utils/device.dart';
@@ -22,7 +22,7 @@ class AboutPage extends StatefulWidget {
 }
 
 class _AboutPageState extends State<AboutPage> {
-  final exitBehaviorTitles = <String>['退出 Kazumi', '最小化至托盘', '每次都询问'];
+  final exitBehaviorTitles = <String>['退出 Aslan', '最小化至托盘', '每次都询问'];
   late dynamic defaultDanmakuArea;
   late dynamic defaultThemeMode;
   late dynamic defaultThemeColor;
@@ -144,6 +144,14 @@ class _AboutPageState extends State<AboutPage> {
           sections: [
             SettingsSection(
               tiles: [
+                SettingsTile(
+                  title: Text(AppIdentity.name,
+                      style: TextStyle(fontFamily: fontFamily)),
+                  description: Text(
+                    AppIdentity.forkNotice,
+                    style: TextStyle(fontFamily: fontFamily),
+                  ),
+                ),
                 SettingsTile.navigation(
                   onPressed: (_) {
                     Modular.to.pushNamed('/settings/about/license');
@@ -160,14 +168,14 @@ class _AboutPageState extends State<AboutPage> {
               tiles: [
                 SettingsTile.navigation(
                   onPressed: (_) {
-                    launchUrl(Uri.parse(ApiEndpoints.projectUrl),
+                    launchUrl(Uri.parse(AppIdentity.projectUrl),
                         mode: LaunchMode.externalApplication);
                   },
                   title: Text('项目主页', style: TextStyle(fontFamily: fontFamily)),
                 ),
                 SettingsTile.navigation(
                   onPressed: (_) {
-                    launchUrl(Uri.parse(ApiEndpoints.sourceUrl),
+                    launchUrl(Uri.parse(AppIdentity.sourceUrl),
                         mode: LaunchMode.externalApplication);
                   },
                   title: Text('代码仓库', style: TextStyle(fontFamily: fontFamily)),
@@ -176,48 +184,12 @@ class _AboutPageState extends State<AboutPage> {
                 ),
                 SettingsTile.navigation(
                   onPressed: (_) {
-                    launchUrl(Uri.parse(ApiEndpoints.iconUrl),
+                    launchUrl(Uri.parse(AppIdentity.upstreamRepository),
                         mode: LaunchMode.externalApplication);
                   },
-                  title: Text('图标创作', style: TextStyle(fontFamily: fontFamily)),
+                  title: Text('上游项目', style: TextStyle(fontFamily: fontFamily)),
                   value:
-                      Text('Pixiv', style: TextStyle(fontFamily: fontFamily)),
-                ),
-                SettingsTile.navigation(
-                  onPressed: (_) {
-                    launchUrl(Uri.parse('https://trace.moe'),
-                        mode: LaunchMode.externalApplication);
-                  },
-                  title: Text('以图搜番', style: TextStyle(fontFamily: fontFamily)),
-                  value: Text('trace.moe',
-                      style: TextStyle(fontFamily: fontFamily)),
-                ),
-                SettingsTile.navigation(
-                  onPressed: (_) {
-                    launchUrl(Uri.parse(ApiEndpoints.dandanIndex),
-                        mode: LaunchMode.externalApplication);
-                  },
-                  title: Text('弹幕来源', style: TextStyle(fontFamily: fontFamily)),
-                  description: Text('ID: ${dandanCredentials['id']}',
-                      style: TextStyle(fontFamily: fontFamily)),
-                  value: Text('弹弹play开放平台',
-                      style: TextStyle(fontFamily: fontFamily)),
-                ),
-              ],
-            ),
-            SettingsSection(
-              title: Text('社区', style: TextStyle(fontFamily: fontFamily)),
-              tiles: [
-                SettingsTile.navigation(
-                  onPressed: (_) {
-                    launchUrl(Uri.parse(ApiEndpoints.telegramGroup),
-                        mode: LaunchMode.externalApplication);
-                  },
-                  title: Text('Telegram',
-                      style: TextStyle(fontFamily: fontFamily)),
-                  description: Text('Kazumi 官方 Telegram 群组',
-                      style: TextStyle(fontFamily: fontFamily)),
-                  value: Text('点击加入', style: TextStyle(fontFamily: fontFamily)),
+                      Text('Kazumi', style: TextStyle(fontFamily: fontFamily)),
                 ),
               ],
             ),

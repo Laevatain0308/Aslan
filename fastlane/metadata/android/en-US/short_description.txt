@@ -1,1 +1,1 @@
-An anime collection APP based on custom rules.
+An anime collection app based on custom rules.

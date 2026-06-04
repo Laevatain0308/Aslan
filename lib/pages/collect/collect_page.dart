@@ -15,6 +15,7 @@ import 'package:kazumi/bean/widget/collect_button.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:kazumi/modules/collect/collect_sync_plan.dart';
 import 'package:kazumi/services/storage/storage.dart';
+import 'package:kazumi/utils/app_feature_flags.dart';
 
 class CollectPage extends StatefulWidget {
   const CollectPage({super.key});
@@ -162,6 +163,7 @@ class _CollectPageState extends State<CollectPage>
             bool webDavCollectEnable = await setting
                 .get(SettingBoxKey.webDavEnableCollect, defaultValue: false);
             final syncPlan = CollectSyncPlan(
+              webDavFeatureEnabled: AppFeatureFlags.webDavSync,
               webDavEnabled: webDavenable,
               webDavCollectiblesEnabled: webDavCollectEnable,
               bangumiEnabled: false,

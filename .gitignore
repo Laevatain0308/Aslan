@@ -57,3 +57,6 @@ android/build/reports/problems/
 
 # CodeGraph
 .codegraph/
+
+# Temp Files
+.tmp/

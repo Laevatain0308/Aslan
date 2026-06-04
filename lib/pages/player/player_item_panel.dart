@@ -20,6 +20,7 @@ import 'package:kazumi/services/player/timed_shutdown_service.dart';
 import 'package:kazumi/pages/download/download_controller.dart';
 import 'package:kazumi/utils/device.dart';
 import 'package:kazumi/utils/format.dart';
+import 'package:kazumi/utils/app_feature_flags.dart';
 
 class PlayerItemPanel extends StatefulWidget {
   const PlayerItemPanel({
@@ -152,8 +153,8 @@ class _PlayerItemPanelState extends State<PlayerItemPanel> {
                 decoration: InputDecoration(
                   floatingLabelBehavior:
                       FloatingLabelBehavior.never, // 控制label的显示方式
-                  labelText: playerController.playback.buttonSkipTime
-                      .toString(),
+                  labelText:
+                      playerController.playback.buttonSkipTime.toString(),
                 ),
                 onChanged: (value) {
                   input = value;
@@ -190,36 +191,33 @@ class _PlayerItemPanelState extends State<PlayerItemPanel> {
   void initState() {
     super.initState();
     playerController = widget.playerController;
-    topOffsetAnimation =
-        Tween<Offset>(
-          begin: const Offset(0.0, -1.0),
-          end: const Offset(0.0, 0.0),
-        ).animate(
-          CurvedAnimation(
-            parent: widget.panelVisibilityController,
-            curve: Curves.easeInOut,
-          ),
-        );
-    bottomOffsetAnimation =
-        Tween<Offset>(
-          begin: const Offset(0.0, 1.0),
-          end: const Offset(0.0, 0.0),
-        ).animate(
-          CurvedAnimation(
-            parent: widget.panelVisibilityController,
-            curve: Curves.easeInOut,
-          ),
-        );
-    leftOffsetAnimation =
-        Tween<Offset>(
-          begin: const Offset(1.0, 0.0),
-          end: const Offset(0.0, 0.0),
-        ).animate(
-          CurvedAnimation(
-            parent: widget.panelVisibilityController,
-            curve: Curves.easeInOut,
-          ),
-        );
+    topOffsetAnimation = Tween<Offset>(
+      begin: const Offset(0.0, -1.0),
+      end: const Offset(0.0, 0.0),
+    ).animate(
+      CurvedAnimation(
+        parent: widget.panelVisibilityController,
+        curve: Curves.easeInOut,
+      ),
+    );
+    bottomOffsetAnimation = Tween<Offset>(
+      begin: const Offset(0.0, 1.0),
+      end: const Offset(0.0, 0.0),
+    ).animate(
+      CurvedAnimation(
+        parent: widget.panelVisibilityController,
+        curve: Curves.easeInOut,
+      ),
+    );
+    leftOffsetAnimation = Tween<Offset>(
+      begin: const Offset(1.0, 0.0),
+      end: const Offset(0.0, 0.0),
+    ).animate(
+      CurvedAnimation(
+        parent: widget.panelVisibilityController,
+        curve: Curves.easeInOut,
+      ),
+    );
     haEnable = setting.get(SettingBoxKey.hAenable, defaultValue: true);
   }
 
@@ -255,8 +253,7 @@ class _PlayerItemPanelState extends State<PlayerItemPanel> {
           child: Observer(
             builder: (context) {
               return Visibility(
-                visible:
-                    !playerController.panel.lockPanel &&
+                visible: !playerController.panel.lockPanel &&
                     (widget.disableAnimations
                         ? playerController.panel.showVideoController
                         : true),
@@ -296,8 +293,7 @@ class _PlayerItemPanelState extends State<PlayerItemPanel> {
           child: Observer(
             builder: (context) {
               return Visibility(
-                visible:
-                    !playerController.panel.lockPanel &&
+                visible: !playerController.panel.lockPanel &&
                     (widget.disableAnimations
                         ? playerController.panel.showVideoController
                         : true),
@@ -404,8 +400,7 @@ class _PlayerItemPanelState extends State<PlayerItemPanel> {
           child: Observer(
             builder: (context) {
               return Visibility(
-                visible:
-                    !playerController.panel.lockPanel &&
+                visible: !playerController.panel.lockPanel &&
                     (widget.disableAnimations
                         ? playerController.panel.showVideoController
                         : true),
@@ -426,8 +421,7 @@ class _PlayerItemPanelState extends State<PlayerItemPanel> {
           child: Observer(
             builder: (context) {
               return Visibility(
-                visible:
-                    !playerController.panel.lockPanel &&
+                visible: !playerController.panel.lockPanel &&
                     (widget.disableAnimations
                         ? playerController.panel.showVideoController
                         : true),
@@ -455,8 +449,7 @@ class _PlayerItemPanelState extends State<PlayerItemPanel> {
           right: videoPageController.isFullscreen,
           child: PlayerPanelHoldMouseRegion(
             acquirePlayerPanelHold: widget.acquirePlayerPanelHold,
-            cursor:
-                (videoPageController.isFullscreen &&
+            cursor: (videoPageController.isFullscreen &&
                     !playerController.panel.showVideoController)
                 ? SystemMouseCursors.none
                 : SystemMouseCursors.basic,
@@ -517,9 +510,8 @@ class _PlayerItemPanelState extends State<PlayerItemPanel> {
                               ? Icons.pause_rounded
                               : Icons.play_arrow_rounded,
                         ),
-                        tooltip: playerController.playback.playing
-                            ? '暂停'
-                            : '播放',
+                        tooltip:
+                            playerController.playback.playing ? '暂停' : '播放',
                         onPressed: () {
                           playerController.playOrPause();
                         },
@@ -552,26 +544,25 @@ class _PlayerItemPanelState extends State<PlayerItemPanel> {
                       PlayerPanelHoldMenuAnchor(
                         acquirePlayerPanelHold: widget.acquirePlayerPanelHold,
                         consumeOutsideTap: true,
-                        builder:
-                            (
-                              BuildContext context,
-                              MenuController controller,
-                              Widget? child,
-                            ) {
-                              return TextButton(
-                                onPressed: () {
-                                  if (controller.isOpen) {
-                                    controller.close();
-                                  } else {
-                                    controller.open();
-                                  }
-                                },
-                                child: const Text(
-                                  '超分辨率',
-                                  style: TextStyle(color: Colors.white),
-                                ),
-                              );
+                        builder: (
+                          BuildContext context,
+                          MenuController controller,
+                          Widget? child,
+                        ) {
+                          return TextButton(
+                            onPressed: () {
+                              if (controller.isOpen) {
+                                controller.close();
+                              } else {
+                                controller.open();
+                              }
                             },
+                            child: const Text(
+                              '超分辨率',
+                              style: TextStyle(color: Colors.white),
+                            ),
+                          );
+                        },
                         menuChildren: List<MenuItemButton>.generate(
                           3,
                           (int index) => MenuItemButton(
@@ -586,13 +577,11 @@ class _PlayerItemPanelState extends State<PlayerItemPanel> {
                                   index + 1 == 1
                                       ? '关闭'
                                       : index + 1 == 2
-                                      ? '效率档'
-                                      : '质量档',
+                                          ? '效率档'
+                                          : '质量档',
                                   style: TextStyle(
-                                    color:
-                                        playerController
-                                                .playback
-                                                .superResolutionType ==
+                                    color: playerController
+                                                .playback.superResolutionType ==
                                             index + 1
                                         ? Theme.of(context).colorScheme.primary
                                         : null,
@@ -607,28 +596,27 @@ class _PlayerItemPanelState extends State<PlayerItemPanel> {
                       PlayerPanelHoldMenuAnchor(
                         acquirePlayerPanelHold: widget.acquirePlayerPanelHold,
                         consumeOutsideTap: true,
-                        builder:
-                            (
-                              BuildContext context,
-                              MenuController controller,
-                              Widget? child,
-                            ) {
-                              return TextButton(
-                                onPressed: () {
-                                  if (controller.isOpen) {
-                                    controller.close();
-                                  } else {
-                                    controller.open();
-                                  }
-                                },
-                                child: Text(
-                                  playerController.playback.playerSpeed == 1.0
-                                      ? '倍速'
-                                      : '${playerController.playback.playerSpeed}x',
-                                  style: const TextStyle(color: Colors.white),
-                                ),
-                              );
+                        builder: (
+                          BuildContext context,
+                          MenuController controller,
+                          Widget? child,
+                        ) {
+                          return TextButton(
+                            onPressed: () {
+                              if (controller.isOpen) {
+                                controller.close();
+                              } else {
+                                controller.open();
+                              }
                             },
+                            child: Text(
+                              playerController.playback.playerSpeed == 1.0
+                                  ? '倍速'
+                                  : '${playerController.playback.playerSpeed}x',
+                              style: const TextStyle(color: Colors.white),
+                            ),
+                          );
+                        },
                         menuChildren: [
                           for (final double i
                               in defaultPlaySpeedList) ...<MenuItemButton>[
@@ -644,11 +632,9 @@ class _PlayerItemPanelState extends State<PlayerItemPanel> {
                                   child: Text(
                                     '${i}x',
                                     style: TextStyle(
-                                      color:
-                                          i ==
+                                      color: i ==
                                               playerController
-                                                  .playback
-                                                  .playerSpeed
+                                                  .playback.playerSpeed
                                           ? Theme.of(
                                               context,
                                             ).colorScheme.primary
@@ -664,33 +650,31 @@ class _PlayerItemPanelState extends State<PlayerItemPanel> {
                       PlayerPanelHoldMenuAnchor(
                         acquirePlayerPanelHold: widget.acquirePlayerPanelHold,
                         consumeOutsideTap: true,
-                        builder:
-                            (
-                              BuildContext context,
-                              MenuController controller,
-                              Widget? child,
-                            ) {
-                              return IconButton(
-                                onPressed: () {
-                                  if (controller.isOpen) {
-                                    controller.close();
-                                  } else {
-                                    controller.open();
-                                  }
-                                },
-                                icon: const Icon(
-                                  Icons.aspect_ratio_rounded,
-                                  color: Colors.white,
-                                ),
-                                tooltip: '视频比例',
-                              );
+                        builder: (
+                          BuildContext context,
+                          MenuController controller,
+                          Widget? child,
+                        ) {
+                          return IconButton(
+                            onPressed: () {
+                              if (controller.isOpen) {
+                                controller.close();
+                              } else {
+                                controller.open();
+                              }
                             },
+                            icon: const Icon(
+                              Icons.aspect_ratio_rounded,
+                              color: Colors.white,
+                            ),
+                            tooltip: '视频比例',
+                          );
+                        },
                         menuChildren: [
                           for (final entry in aspectRatioTypeMap.entries)
                             MenuItemButton(
-                              onPressed: () =>
-                                  playerController.panel.aspectRatioType =
-                                      entry.key,
+                              onPressed: () => playerController
+                                  .panel.aspectRatioType = entry.key,
                               child: Container(
                                 height: 48,
                                 constraints: BoxConstraints(minWidth: 112),
@@ -699,11 +683,9 @@ class _PlayerItemPanelState extends State<PlayerItemPanel> {
                                   child: Text(
                                     entry.value,
                                     style: TextStyle(
-                                      color:
-                                          entry.key ==
+                                      color: entry.key ==
                                               playerController
-                                                  .panel
-                                                  .aspectRatioType
+                                                  .panel.aspectRatioType
                                           ? Theme.of(
                                               context,
                                             ).colorScheme.primary
@@ -770,8 +752,7 @@ class _PlayerItemPanelState extends State<PlayerItemPanel> {
             right: videoPageController.isFullscreen,
             child: PlayerPanelHoldMouseRegion(
               acquirePlayerPanelHold: widget.acquirePlayerPanelHold,
-              cursor:
-                  (videoPageController.isFullscreen &&
+              cursor: (videoPageController.isFullscreen &&
                       !playerController.panel.showVideoController)
                   ? SystemMouseCursors.none
                   : SystemMouseCursors.basic,
@@ -828,14 +809,15 @@ class _PlayerItemPanelState extends State<PlayerItemPanel> {
                         await PipUtils.updateAndroidPIPActions(
                           playing: playerController.playback.playing,
                           danmakuEnabled: false,
+                          danmakuSupported: AppFeatureFlags.danmaku,
                           width: playerController.debug.playerWidth,
                           height: playerController.debug.playerHeight,
                         );
                         final bool entered =
                             await PipUtils.enterAndroidPIPWindow(
-                              width: playerController.debug.playerWidth,
-                              height: playerController.debug.playerHeight,
-                            );
+                          width: playerController.debug.playerWidth,
+                          height: playerController.debug.playerHeight,
+                        );
                         if (!entered) {
                           KazumiDialog.showToast(message: '进入画中画失败');
                         }
@@ -854,27 +836,26 @@ class _PlayerItemPanelState extends State<PlayerItemPanel> {
                   PlayerPanelHoldMenuAnchor(
                     acquirePlayerPanelHold: widget.acquirePlayerPanelHold,
                     consumeOutsideTap: true,
-                    builder:
-                        (
-                          BuildContext context,
-                          MenuController controller,
-                          Widget? child,
-                        ) {
-                          return IconButton(
-                            onPressed: () {
-                              if (controller.isOpen) {
-                                controller.close();
-                              } else {
-                                controller.open();
-                              }
-                            },
-                            tooltip: '更多选项',
-                            icon: const Icon(
-                              Icons.more_vert,
-                              color: Colors.white,
-                            ),
-                          );
+                    builder: (
+                      BuildContext context,
+                      MenuController controller,
+                      Widget? child,
+                    ) {
+                      return IconButton(
+                        onPressed: () {
+                          if (controller.isOpen) {
+                            controller.close();
+                          } else {
+                            controller.open();
+                          }
                         },
+                        tooltip: '更多选项',
+                        icon: const Icon(
+                          Icons.more_vert,
+                          color: Colors.white,
+                        ),
+                      );
+                    },
                     menuChildren: [
                       MenuItemButton(
                         onPressed: () {
@@ -895,14 +876,14 @@ class _PlayerItemPanelState extends State<PlayerItemPanel> {
                           playerController.pause();
                           RemotePlay()
                               .castVideo(
-                                playerController.videoUrl,
-                                videoPageController.sourceReferer,
-                              )
+                            playerController.videoUrl,
+                            videoPageController.sourceReferer,
+                          )
                               .whenComplete(() {
-                                if (mounted && needRestart) {
-                                  playerController.play();
-                                }
-                              });
+                            if (mounted && needRestart) {
+                              playerController.play();
+                            }
+                          });
                         },
                         child: Container(
                           height: 48,
@@ -971,11 +952,11 @@ class _PlayerItemPanelState extends State<PlayerItemPanel> {
                                     style: TextStyle(
                                       color:
                                           TimedShutdownService().setMinutes ==
-                                              minutes
-                                          ? Theme.of(
-                                              context,
-                                            ).colorScheme.primary
-                                          : null,
+                                                  minutes
+                                              ? Theme.of(
+                                                  context,
+                                                ).colorScheme.primary
+                                              : null,
                                     ),
                                   ),
                                 ),
@@ -1016,81 +997,82 @@ class _PlayerItemPanelState extends State<PlayerItemPanel> {
                           ),
                         ),
                       ),
-                      SubmenuButton(
-                        menuChildren: [
-                          MenuItemButton(
-                            child: Container(
-                              height: 48,
-                              constraints: BoxConstraints(minWidth: 112),
-                              child: Align(
-                                alignment: Alignment.centerLeft,
-                                child: Text(
-                                  "当前房间: ${playerController.syncplay.syncplayRoom == '' ? '未加入' : playerController.syncplay.syncplayRoom}",
+                      if (AppFeatureFlags.syncPlay)
+                        SubmenuButton(
+                          menuChildren: [
+                            MenuItemButton(
+                              child: Container(
+                                height: 48,
+                                constraints: BoxConstraints(minWidth: 112),
+                                child: Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(
+                                    "当前房间: ${playerController.syncplay.syncplayRoom == '' ? '未加入' : playerController.syncplay.syncplayRoom}",
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                          MenuItemButton(
-                            child: Container(
-                              height: 48,
-                              constraints: BoxConstraints(minWidth: 112),
-                              child: Align(
-                                alignment: Alignment.centerLeft,
-                                child: Text(
-                                  "网络延时: ${playerController.syncplay.syncplayClientRtt}ms",
+                            MenuItemButton(
+                              child: Container(
+                                height: 48,
+                                constraints: BoxConstraints(minWidth: 112),
+                                child: Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(
+                                    "网络延时: ${playerController.syncplay.syncplayClientRtt}ms",
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                          MenuItemButton(
-                            onPressed: () {
-                              widget.showSyncPlayRoomCreateDialog();
-                            },
-                            child: Container(
-                              height: 48,
-                              constraints: BoxConstraints(minWidth: 112),
-                              child: Align(
-                                alignment: Alignment.centerLeft,
-                                child: Text("加入房间"),
+                            MenuItemButton(
+                              onPressed: () {
+                                widget.showSyncPlayRoomCreateDialog();
+                              },
+                              child: Container(
+                                height: 48,
+                                constraints: BoxConstraints(minWidth: 112),
+                                child: Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: Text("加入房间"),
+                                ),
                               ),
                             ),
-                          ),
-                          MenuItemButton(
-                            onPressed: () {
-                              widget.showSyncPlayEndPointSwitchDialog();
-                            },
-                            child: Container(
-                              height: 48,
-                              constraints: BoxConstraints(minWidth: 112),
-                              child: Align(
-                                alignment: Alignment.centerLeft,
-                                child: Text("切换服务器"),
+                            MenuItemButton(
+                              onPressed: () {
+                                widget.showSyncPlayEndPointSwitchDialog();
+                              },
+                              child: Container(
+                                height: 48,
+                                constraints: BoxConstraints(minWidth: 112),
+                                child: Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: Text("切换服务器"),
+                                ),
                               ),
                             ),
-                          ),
-                          MenuItemButton(
-                            onPressed: () async {
-                              await playerController.exitSyncPlayRoom();
-                            },
-                            child: Container(
-                              height: 48,
-                              constraints: BoxConstraints(minWidth: 112),
-                              child: Align(
-                                alignment: Alignment.centerLeft,
-                                child: Text("断开连接"),
+                            MenuItemButton(
+                              onPressed: () async {
+                                await playerController.exitSyncPlayRoom();
+                              },
+                              child: Container(
+                                height: 48,
+                                constraints: BoxConstraints(minWidth: 112),
+                                child: Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: Text("断开连接"),
+                                ),
                               ),
                             ),
-                          ),
-                        ],
-                        child: Container(
-                          height: 48,
-                          constraints: BoxConstraints(minWidth: 112),
-                          child: Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text("一起看"),
+                          ],
+                          child: Container(
+                            height: 48,
+                            constraints: BoxConstraints(minWidth: 112),
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: Text("一起看"),
+                            ),
                           ),
                         ),
-                      ),
                     ],
                   ),
                 ],

@@ -5,6 +5,7 @@ import 'package:kazumi/bean/appbar/sys_app_bar.dart';
 import 'package:kazumi/pages/menu/menu.dart';
 import 'package:provider/provider.dart';
 import 'package:kazumi/bean/dialog/dialog_helper.dart';
+import 'package:kazumi/utils/app_feature_flags.dart';
 
 class MyPage extends StatefulWidget {
   const MyPage({super.key});
@@ -154,17 +155,19 @@ class _MyPageState extends State<MyPage> {
                     style: TextStyle(fontFamily: fontFamily),
                   ),
                 ),
-                SettingsTile.navigation(
-                  onPressed: (_) {
-                    Modular.to.pushNamed('/settings/webdav/');
-                  },
-                  leading: const Icon(Icons.cloud),
-                  title: Text('同步设置', style: TextStyle(fontFamily: fontFamily)),
-                  description: Text(
-                    '设置同步参数',
-                    style: TextStyle(fontFamily: fontFamily),
+                if (AppFeatureFlags.webDavSync)
+                  SettingsTile.navigation(
+                    onPressed: (_) {
+                      Modular.to.pushNamed('/settings/webdav/');
+                    },
+                    leading: const Icon(Icons.cloud),
+                    title:
+                        Text('同步设置', style: TextStyle(fontFamily: fontFamily)),
+                    description: Text(
+                      '设置同步参数',
+                      style: TextStyle(fontFamily: fontFamily),
+                    ),
                   ),
-                ),
               ],
             ),
             SettingsSection(

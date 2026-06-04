@@ -4,6 +4,7 @@ import 'package:audio_session/audio_session.dart';
 import 'package:audio_service/audio_service.dart';
 import 'package:audio_service_mpris/audio_service_mpris.dart';
 import 'package:kazumi/services/logging/logger.dart';
+import 'package:kazumi/utils/app_identity.dart';
 
 typedef AudioCallback = Future<void> Function();
 typedef AudioSeekCallback = Future<void> Function(Duration position);
@@ -36,8 +37,8 @@ class AudioController {
     late _KazumiAudioHandler rawHandler;
     if (Platform.isLinux) {
       AudioServiceMpris.init(
-        dBusName: 'io.github.Predidit.Kazumi.channel.audio',
-        identity: 'Kazumi Playback',
+        dBusName: 'io.github.Laevatain.Aslan.channel.audio',
+        identity: '${AppIdentity.name} Playback',
         canControl: true,
         canPlay: true,
         canPause: true,
@@ -51,8 +52,8 @@ class AudioController {
         return rawHandler;
       },
       config: const AudioServiceConfig(
-        androidNotificationChannelId: 'io.github.Predidit.Kazumi.channel.audio',
-        androidNotificationChannelName: 'Kazumi Playback',
+        androidNotificationChannelId: 'io.github.Laevatain.Aslan.channel.audio',
+        androidNotificationChannelName: 'Aslan Playback',
         androidNotificationOngoing: true,
       ),
     );

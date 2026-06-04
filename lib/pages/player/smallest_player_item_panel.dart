@@ -19,6 +19,7 @@ import 'package:kazumi/bean/widget/embedded_native_control_area.dart';
 import 'package:kazumi/services/player/timed_shutdown_service.dart';
 import 'package:kazumi/utils/device.dart';
 import 'package:kazumi/utils/format.dart';
+import 'package:kazumi/utils/app_feature_flags.dart';
 
 class SmallestPlayerItemPanel extends StatefulWidget {
   const SmallestPlayerItemPanel({
@@ -86,8 +87,8 @@ class _SmallestPlayerItemPanelState extends State<SmallestPlayerItemPanel> {
                 decoration: InputDecoration(
                   floatingLabelBehavior:
                       FloatingLabelBehavior.never, // 控制label的显示方式
-                  labelText: playerController.playback.buttonSkipTime
-                      .toString(),
+                  labelText:
+                      playerController.playback.buttonSkipTime.toString(),
                 ),
                 onChanged: (value) {
                   input = value;
@@ -124,36 +125,33 @@ class _SmallestPlayerItemPanelState extends State<SmallestPlayerItemPanel> {
   void initState() {
     super.initState();
     playerController = widget.playerController;
-    topOffsetAnimation =
-        Tween<Offset>(
-          begin: const Offset(0.0, -1.0),
-          end: const Offset(0.0, 0.0),
-        ).animate(
-          CurvedAnimation(
-            parent: widget.panelVisibilityController,
-            curve: Curves.easeInOut,
-          ),
-        );
-    bottomOffsetAnimation =
-        Tween<Offset>(
-          begin: const Offset(0.0, 1.0),
-          end: const Offset(0.0, 0.0),
-        ).animate(
-          CurvedAnimation(
-            parent: widget.panelVisibilityController,
-            curve: Curves.easeInOut,
-          ),
-        );
-    leftOffsetAnimation =
-        Tween<Offset>(
-          begin: const Offset(1.0, 0.0),
-          end: const Offset(0.0, 0.0),
-        ).animate(
-          CurvedAnimation(
-            parent: widget.panelVisibilityController,
-            curve: Curves.easeInOut,
-          ),
-        );
+    topOffsetAnimation = Tween<Offset>(
+      begin: const Offset(0.0, -1.0),
+      end: const Offset(0.0, 0.0),
+    ).animate(
+      CurvedAnimation(
+        parent: widget.panelVisibilityController,
+        curve: Curves.easeInOut,
+      ),
+    );
+    bottomOffsetAnimation = Tween<Offset>(
+      begin: const Offset(0.0, 1.0),
+      end: const Offset(0.0, 0.0),
+    ).animate(
+      CurvedAnimation(
+        parent: widget.panelVisibilityController,
+        curve: Curves.easeInOut,
+      ),
+    );
+    leftOffsetAnimation = Tween<Offset>(
+      begin: const Offset(1.0, 0.0),
+      end: const Offset(0.0, 0.0),
+    ).animate(
+      CurvedAnimation(
+        parent: widget.panelVisibilityController,
+        curve: Curves.easeInOut,
+      ),
+    );
     haEnable = setting.get(SettingBoxKey.hAenable, defaultValue: true);
   }
 
@@ -189,8 +187,7 @@ class _SmallestPlayerItemPanelState extends State<SmallestPlayerItemPanel> {
           child: Observer(
             builder: (context) {
               return Visibility(
-                visible:
-                    !playerController.panel.lockPanel &&
+                visible: !playerController.panel.lockPanel &&
                     (widget.disableAnimations
                         ? playerController.panel.showVideoController
                         : true),
@@ -230,8 +227,7 @@ class _SmallestPlayerItemPanelState extends State<SmallestPlayerItemPanel> {
           child: Observer(
             builder: (context) {
               return Visibility(
-                visible:
-                    !playerController.panel.lockPanel &&
+                visible: !playerController.panel.lockPanel &&
                     (widget.disableAnimations
                         ? playerController.panel.showVideoController
                         : true),
@@ -316,8 +312,7 @@ class _SmallestPlayerItemPanelState extends State<SmallestPlayerItemPanel> {
           child: Observer(
             builder: (context) {
               return Visibility(
-                visible:
-                    !playerController.panel.lockPanel &&
+                visible: !playerController.panel.lockPanel &&
                     (widget.disableAnimations
                         ? playerController.panel.showVideoController
                         : true),
@@ -338,8 +333,7 @@ class _SmallestPlayerItemPanelState extends State<SmallestPlayerItemPanel> {
           child: Observer(
             builder: (context) {
               return Visibility(
-                visible:
-                    !playerController.panel.lockPanel &&
+                visible: !playerController.panel.lockPanel &&
                     (widget.disableAnimations
                         ? playerController.panel.showVideoController
                         : true),
@@ -469,6 +463,7 @@ class _SmallestPlayerItemPanelState extends State<SmallestPlayerItemPanel> {
                     await PipUtils.updateAndroidPIPActions(
                       playing: playerController.playback.playing,
                       danmakuEnabled: false,
+                      danmakuSupported: AppFeatureFlags.danmaku,
                       width: playerController.debug.playerWidth,
                       height: playerController.debug.playerHeight,
                     );
@@ -494,24 +489,23 @@ class _SmallestPlayerItemPanelState extends State<SmallestPlayerItemPanel> {
               PlayerPanelHoldMenuAnchor(
                 acquirePlayerPanelHold: widget.acquirePlayerPanelHold,
                 consumeOutsideTap: true,
-                builder:
-                    (
-                      BuildContext context,
-                      MenuController controller,
-                      Widget? child,
-                    ) {
-                      return IconButton(
-                        onPressed: () {
-                          if (controller.isOpen) {
-                            controller.close();
-                          } else {
-                            controller.open();
-                          }
-                        },
-                        tooltip: '更多选项',
-                        icon: const Icon(Icons.more_vert, color: Colors.white),
-                      );
+                builder: (
+                  BuildContext context,
+                  MenuController controller,
+                  Widget? child,
+                ) {
+                  return IconButton(
+                    onPressed: () {
+                      if (controller.isOpen) {
+                        controller.close();
+                      } else {
+                        controller.open();
+                      }
                     },
+                    tooltip: '更多选项',
+                    icon: const Icon(Icons.more_vert, color: Colors.white),
+                  );
+                },
                 menuChildren: [
                   SubmenuButton(
                     menuChildren: List<MenuItemButton>.generate(
@@ -528,11 +522,10 @@ class _SmallestPlayerItemPanelState extends State<SmallestPlayerItemPanel> {
                               index + 1 == 1
                                   ? '自动'
                                   : index + 1 == 2
-                                  ? '裁切填充'
-                                  : '拉伸填充',
+                                      ? '裁切填充'
+                                      : '拉伸填充',
                               style: TextStyle(
-                                color:
-                                    index + 1 ==
+                                color: index + 1 ==
                                         playerController.panel.aspectRatioType
                                     ? Theme.of(context).colorScheme.primary
                                     : null,
@@ -567,8 +560,8 @@ class _SmallestPlayerItemPanelState extends State<SmallestPlayerItemPanel> {
                               child: Text(
                                 '${i}x',
                                 style: TextStyle(
-                                  color:
-                                      i == playerController.playback.playerSpeed
+                                  color: i ==
+                                          playerController.playback.playerSpeed
                                       ? Theme.of(context).colorScheme.primary
                                       : null,
                                 ),
@@ -602,13 +595,11 @@ class _SmallestPlayerItemPanelState extends State<SmallestPlayerItemPanel> {
                               index + 1 == 1
                                   ? '关闭'
                                   : index + 1 == 2
-                                  ? '效率档'
-                                  : '质量档',
+                                      ? '效率档'
+                                      : '质量档',
                               style: TextStyle(
-                                color:
-                                    playerController
-                                            .playback
-                                            .superResolutionType ==
+                                color: playerController
+                                            .playback.superResolutionType ==
                                         index + 1
                                     ? Theme.of(context).colorScheme.primary
                                     : null,
@@ -627,81 +618,82 @@ class _SmallestPlayerItemPanelState extends State<SmallestPlayerItemPanel> {
                       ),
                     ),
                   ),
-                  SubmenuButton(
-                    menuChildren: [
-                      MenuItemButton(
-                        child: Container(
-                          height: 48,
-                          constraints: BoxConstraints(minWidth: 112),
-                          child: Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text(
-                              "当前房间: ${playerController.syncplay.syncplayRoom == '' ? '未加入' : playerController.syncplay.syncplayRoom}",
+                  if (AppFeatureFlags.syncPlay)
+                    SubmenuButton(
+                      menuChildren: [
+                        MenuItemButton(
+                          child: Container(
+                            height: 48,
+                            constraints: BoxConstraints(minWidth: 112),
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                "当前房间: ${playerController.syncplay.syncplayRoom == '' ? '未加入' : playerController.syncplay.syncplayRoom}",
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                      MenuItemButton(
-                        child: Container(
-                          height: 48,
-                          constraints: BoxConstraints(minWidth: 112),
-                          child: Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text(
-                              "网络延时: ${playerController.syncplay.syncplayClientRtt}ms",
+                        MenuItemButton(
+                          child: Container(
+                            height: 48,
+                            constraints: BoxConstraints(minWidth: 112),
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                "网络延时: ${playerController.syncplay.syncplayClientRtt}ms",
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                      MenuItemButton(
-                        onPressed: () {
-                          widget.showSyncPlayRoomCreateDialog();
-                        },
-                        child: Container(
-                          height: 48,
-                          constraints: BoxConstraints(minWidth: 112),
-                          child: Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text("加入房间"),
+                        MenuItemButton(
+                          onPressed: () {
+                            widget.showSyncPlayRoomCreateDialog();
+                          },
+                          child: Container(
+                            height: 48,
+                            constraints: BoxConstraints(minWidth: 112),
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: Text("加入房间"),
+                            ),
                           ),
                         ),
-                      ),
-                      MenuItemButton(
-                        onPressed: () {
-                          widget.showSyncPlayEndPointSwitchDialog();
-                        },
-                        child: Container(
-                          height: 48,
-                          constraints: BoxConstraints(minWidth: 112),
-                          child: Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text("切换服务器"),
+                        MenuItemButton(
+                          onPressed: () {
+                            widget.showSyncPlayEndPointSwitchDialog();
+                          },
+                          child: Container(
+                            height: 48,
+                            constraints: BoxConstraints(minWidth: 112),
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: Text("切换服务器"),
+                            ),
                           ),
                         ),
-                      ),
-                      MenuItemButton(
-                        onPressed: () async {
-                          await playerController.exitSyncPlayRoom();
-                        },
-                        child: Container(
-                          height: 48,
-                          constraints: BoxConstraints(minWidth: 112),
-                          child: Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text("断开连接"),
+                        MenuItemButton(
+                          onPressed: () async {
+                            await playerController.exitSyncPlayRoom();
+                          },
+                          child: Container(
+                            height: 48,
+                            constraints: BoxConstraints(minWidth: 112),
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: Text("断开连接"),
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                    child: Container(
-                      height: 48,
-                      constraints: BoxConstraints(minWidth: 112),
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text("一起看"),
+                      ],
+                      child: Container(
+                        height: 48,
+                        constraints: BoxConstraints(minWidth: 112),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text("一起看"),
+                        ),
                       ),
                     ),
-                  ),
                   MenuItemButton(
                     onPressed: () {
                       widget.showVideoInfo();
@@ -721,14 +713,14 @@ class _SmallestPlayerItemPanelState extends State<SmallestPlayerItemPanel> {
                       playerController.pause();
                       RemotePlay()
                           .castVideo(
-                            playerController.videoUrl,
-                            videoPageController.sourceReferer,
-                          )
+                        playerController.videoUrl,
+                        videoPageController.sourceReferer,
+                      )
                           .whenComplete(() {
-                            if (mounted && needRestart) {
-                              playerController.play();
-                            }
-                          });
+                        if (mounted && needRestart) {
+                          playerController.play();
+                        }
+                      });
                     },
                     child: Container(
                       height: 48,
@@ -795,8 +787,7 @@ class _SmallestPlayerItemPanelState extends State<SmallestPlayerItemPanel> {
                               child: Text(
                                 "$minutes 分钟",
                                 style: TextStyle(
-                                  color:
-                                      TimedShutdownService().setMinutes ==
+                                  color: TimedShutdownService().setMinutes ==
                                           minutes
                                       ? Theme.of(context).colorScheme.primary
                                       : null,

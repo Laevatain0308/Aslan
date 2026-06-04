@@ -14,16 +14,17 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:kazumi/utils/device.dart';
 import 'package:kazumi/utils/date_time.dart';
 import 'package:kazumi/utils/crypto.dart';
+import 'package:kazumi/utils/app_identity.dart';
 import 'package:kazumi/utils/version.dart';
 
 /// 安装类型枚举
 enum InstallationType {
-  windowsMsix, // Kazumi_windows_1.7.5.msix
-  windowsPortable, // Kazumi_windows_1.7.5.zip
-  linuxDeb, // Kazumi_linux_1.7.5_amd64.deb
-  linuxTar, // Kazumi_linux_1.7.5_amd64.tar.gz
-  macosDmg, // Kazumi_macos_1.7.5.dmg
-  androidApk, // Kazumi_android_1.7.5.apk
+  windowsMsix, // Aslan_windows_1.7.5.msix
+  windowsPortable, // Aslan_windows_1.7.5.zip
+  linuxDeb, // Aslan_linux_1.7.5_amd64.deb
+  linuxTar, // Aslan_linux_1.7.5_amd64.tar.gz
+  macosDmg, // Aslan_macos_1.7.5.dmg
+  androidApk, // Aslan_android_1.7.5.apk
   ios, // iOS App
   unknown,
 }
@@ -799,7 +800,7 @@ class AutoUpdater {
     } else if (Platform.isAndroid) {
       extension = '.apk';
     }
-    return 'Kazumi-$version$extension';
+    return '${AppIdentity.name}-$version$extension';
   }
 
   /// 从 assets 中获取文件的哈希值

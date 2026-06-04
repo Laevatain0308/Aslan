@@ -14,6 +14,7 @@ void main() {
   group('CollectSyncPlan', () {
     test('keeps WebDAV history-only mode out of collectible sync', () {
       const plan = CollectSyncPlan(
+        webDavFeatureEnabled: true,
         webDavEnabled: true,
         webDavCollectiblesEnabled: false,
         bangumiEnabled: false,
@@ -26,6 +27,7 @@ void main() {
 
     test('allows Bangumi-only sync while WebDAV is enabled for history', () {
       const plan = CollectSyncPlan(
+        webDavFeatureEnabled: true,
         webDavEnabled: true,
         webDavCollectiblesEnabled: false,
         bangumiEnabled: true,
@@ -38,6 +40,7 @@ void main() {
 
     test('allows WebDAV-only collectible sync', () {
       const plan = CollectSyncPlan(
+        webDavFeatureEnabled: true,
         webDavEnabled: true,
         webDavCollectiblesEnabled: true,
         bangumiEnabled: false,
@@ -48,8 +51,21 @@ void main() {
       expect(plan.canSync, isTrue);
     });
 
+    test('blocks WebDAV collectible sync when the feature is disabled', () {
+      const plan = CollectSyncPlan(
+        webDavFeatureEnabled: false,
+        webDavEnabled: true,
+        webDavCollectiblesEnabled: true,
+        bangumiEnabled: false,
+      );
+
+      expect(plan.shouldSyncWebDavCollectibles, isFalse);
+      expect(plan.canSync, isFalse);
+    });
+
     test('uploads back to WebDAV only after both sources finished', () {
       const plan = CollectSyncPlan(
+        webDavFeatureEnabled: true,
         webDavEnabled: true,
         webDavCollectiblesEnabled: true,
         bangumiEnabled: true,

@@ -8,6 +8,7 @@ import 'package:kazumi/bean/appbar/sys_app_bar.dart';
 import 'package:kazumi/modules/bangumi/bangumi_item.dart';
 import 'package:kazumi/services/logging/logger.dart';
 import 'package:flutter_modular/flutter_modular.dart';
+import 'package:kazumi/utils/app_feature_flags.dart';
 
 class SearchPage extends StatefulWidget {
   const SearchPage({super.key, this.inputTag = ''});
@@ -222,18 +223,19 @@ class _SearchPageState extends State<SearchPage> {
                   icon: Icon(Icons.arrow_back),
                 ),
                 barTrailing: [
-                  IconButton(
-                    onPressed: () async {
-                      final result =
-                          await Modular.to.pushNamed('/search/image');
-                      if (result is String && result.isNotEmpty) {
-                        searchController.text = result;
-                        searchPageController.searchBangumi(result,
-                            type: 'init');
-                      }
-                    },
-                    icon: const Icon(Icons.image_search_rounded),
-                  ),
+                  if (AppFeatureFlags.imageSearch)
+                    IconButton(
+                      onPressed: () async {
+                        final result =
+                            await Modular.to.pushNamed('/search/image');
+                        if (result is String && result.isNotEmpty) {
+                          searchController.text = result;
+                          searchPageController.searchBangumi(result,
+                              type: 'init');
+                        }
+                      },
+                      icon: const Icon(Icons.image_search_rounded),
+                    ),
                 ],
                 isFullScreen: MediaQuery.sizeOf(context).width <
                     LayoutBreakpoint.compact['width']!,

@@ -31,6 +31,7 @@ class MainActivity: AudioServiceActivity() {
 
     private var pipIsPlaying = false
     private var pipDanmakuEnabled = false
+    private var pipDanmakuSupported = true
     private var pipActionReceiverRegistered = false
     private var autoEnterPipOnHomeGesture = false
     private var pipInPlayerPage = false
@@ -122,9 +123,10 @@ class MainActivity: AudioServiceActivity() {
             } else if (call.method == "updatePictureInPictureActions") {
                 val playing = call.argument<Boolean>("playing") ?: false
                 val danmakuEnabled = call.argument<Boolean>("danmakuEnabled") ?: false
+                val danmakuSupported = call.argument<Boolean>("danmakuSupported") ?: true
                 pipAspectWidth = call.argument<Int>("width") ?: pipAspectWidth
                 pipAspectHeight = call.argument<Int>("height") ?: pipAspectHeight
-                updatePictureInPictureActions(playing, danmakuEnabled)
+                updatePictureInPictureActions(playing, danmakuEnabled, danmakuSupported)
                 result.success(true)
             } else if (call.method == "setAndroidAutoEnterPIPEnabled") {
                 autoEnterPipOnHomeGesture = call.argument<Boolean>("enabled") ?: false
@@ -199,13 +201,15 @@ class MainActivity: AudioServiceActivity() {
 
     private fun updatePictureInPictureActions(
         playing: Boolean,
-        danmakuEnabled: Boolean
+        danmakuEnabled: Boolean,
+        danmakuSupported: Boolean
     ) {
         if (!isPictureInPictureSupported()) {
             return
         }
         pipIsPlaying = playing
         pipDanmakuEnabled = danmakuEnabled
+        pipDanmakuSupported = danmakuSupported
         refreshPictureInPictureParamsIfNeeded()
     }
 
@@ -237,15 +241,20 @@ class MainActivity: AudioServiceActivity() {
             return emptyList()
         }
 
-        val allActions = mutableListOf<RemoteAction>(
-            createPipAction(
+        val allActions = mutableListOf<RemoteAction>()
+
+        if (pipDanmakuSupported) {
+            allActions.add(createPipAction(
                 action = actionPipToggleDanmaku,
                 requestCode = 1003,
                 iconRes = if (pipDanmakuEnabled) R.drawable.ic_pip_danmaku_on else R.drawable.ic_pip_danmaku_off,
                 title = if (pipDanmakuEnabled) "Danmaku On" else "Danmaku Off",
                 description = if (pipDanmakuEnabled) "Turn off danmaku" else "Turn on danmaku",
                 enabled = true
-            ),
+            ))
+        }
+
+        allActions.addAll(listOf(
             createPipAction(
                 action = actionPipPlayPause,
                 requestCode = 1001,
@@ -262,7 +271,7 @@ class MainActivity: AudioServiceActivity() {
                 description = "Forward by custom seconds",
                 enabled = true
             )
-        )
+        ))
 
         val maxActions = maxNumPictureInPictureActions
         if (allActions.size > maxActions) {
