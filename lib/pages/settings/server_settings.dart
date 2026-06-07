@@ -9,8 +9,10 @@ import 'package:kazumi/pages/collect/collect_controller.dart';
 import 'package:kazumi/pages/history/history_controller.dart';
 import 'package:kazumi/request/apis/private_sync_api.dart';
 import 'package:kazumi/request/config/api_endpoints.dart';
+import 'package:kazumi/services/player/syncplay_endpoint.dart';
 import 'package:kazumi/services/storage/storage.dart';
 import 'package:kazumi/services/sync/private_sync_service.dart';
+import 'package:kazumi/utils/constants.dart';
 
 class ServerSettingsPage extends StatefulWidget {
   const ServerSettingsPage({super.key});
@@ -22,6 +24,7 @@ class ServerSettingsPage extends StatefulWidget {
 class _ServerSettingsPageState extends State<ServerSettingsPage> {
   final Box setting = GStorage.setting;
   late final TextEditingController serverController;
+  late final TextEditingController syncPlayServerController;
   late final TextEditingController tokenController;
   late final TextEditingController deviceNameController;
   late final TextEditingController loginNameController;
@@ -65,6 +68,14 @@ class _ServerSettingsPageState extends State<ServerSettingsPage> {
           )
           .toString(),
     );
+    syncPlayServerController = TextEditingController(
+      text: setting
+          .get(
+            SettingBoxKey.syncPlayEndPoint,
+            defaultValue: defaultSyncPlayEndPoint,
+          )
+          .toString(),
+    );
     tokenController = TextEditingController(
       text: setting.get(SettingBoxKey.privateSyncToken, defaultValue: ''),
     );
@@ -102,6 +113,7 @@ class _ServerSettingsPageState extends State<ServerSettingsPage> {
   @override
   void dispose() {
     serverController.dispose();
+    syncPlayServerController.dispose();
     tokenController.dispose();
     deviceNameController.dispose();
     loginNameController.dispose();
@@ -407,6 +419,23 @@ class _ServerSettingsPageState extends State<ServerSettingsPage> {
     KazumiDialog.showToast(message: '已清除服务地址');
   }
 
+  Future<void> saveSyncPlayServerUrl() async {
+    final value = syncPlayServerController.text.trim();
+    if (parseSyncPlayEndPoint(value) == null) {
+      KazumiDialog.showToast(message: 'SyncPlay 服务器地址格式无效');
+      return;
+    }
+    syncPlayServerController.text = value;
+    await setting.put(SettingBoxKey.syncPlayEndPoint, value);
+    KazumiDialog.showToast(message: 'SyncPlay 服务器已保存');
+  }
+
+  Future<void> resetSyncPlayServerUrl() async {
+    syncPlayServerController.text = defaultSyncPlayEndPoint;
+    await setting.delete(SettingBoxKey.syncPlayEndPoint);
+    KazumiDialog.showToast(message: '已恢复默认 SyncPlay 服务器');
+  }
+
   String privateSyncDeviceName() {
     final configured = deviceNameController.text.trim();
     if (configured.isNotEmpty) {
@@ -550,6 +579,12 @@ class _ServerSettingsPageState extends State<ServerSettingsPage> {
             ],
           ),
           const SizedBox(height: 24),
+          SyncPlayServerSettingsSection(
+            controller: syncPlayServerController,
+            onSave: saveSyncPlayServerUrl,
+            onReset: resetSyncPlayServerUrl,
+          ),
+          const SizedBox(height: 24),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             value: privateSyncEnable,
@@ -643,6 +678,47 @@ class _ServerSettingsPageState extends State<ServerSettingsPage> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class SyncPlayServerSettingsSection extends StatelessWidget {
+  const SyncPlayServerSettingsSection({
+    super.key,
+    required this.controller,
+    required this.onSave,
+    required this.onReset,
+  });
+
+  final TextEditingController controller;
+  final VoidCallback onSave;
+  final VoidCallback onReset;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        TextField(
+          controller: controller,
+          keyboardType: TextInputType.url,
+          decoration: const InputDecoration(
+            labelText: 'SyncPlay 服务器',
+            hintText: '默认 syncplay.pl:8996，格式 host:port',
+            border: OutlineInputBorder(),
+          ),
+          onSubmitted: (_) => onSave(),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            TextButton(onPressed: onReset, child: const Text('恢复默认')),
+            const SizedBox(width: 8),
+            FilledButton(onPressed: onSave, child: const Text('保存')),
+          ],
+        ),
+      ],
     );
   }
 }

@@ -1138,139 +1138,15 @@ class _PlayerItemState extends State<PlayerItem>
     );
   }
 
-  void showSyncPlayEndPointSwitchDialog() {
-    if (playerController.syncplay.syncplayController != null) {
-      KazumiDialog.showToast(message: 'SyncPlay: 请先退出当前房间再切换服务器');
-      return;
-    }
-
-    final String defaultCustomSyncPlayEndPoint = '自定义服务器';
-    String customSyncPlayEndPoint = defaultCustomSyncPlayEndPoint;
-    String selectedSyncPlayEndPoint = setting.get(
-      SettingBoxKey.syncPlayEndPoint,
-      defaultValue: defaultSyncPlayEndPoint,
-    );
-
-    KazumiDialog.show(
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            List<String> syncPlayEndPoints = [];
-            syncPlayEndPoints.addAll(defaultSyncPlayEndPoints);
-            syncPlayEndPoints.add(customSyncPlayEndPoint);
-            if (!syncPlayEndPoints.contains(selectedSyncPlayEndPoint)) {
-              syncPlayEndPoints.add(selectedSyncPlayEndPoint);
-            }
-            return AlertDialog(
-              title: const Text('选择服务器'),
-              content: SingleChildScrollView(
-                child: ListBody(
-                  children: <Widget>[
-                    DropdownButtonFormField<String>(
-                      key: ValueKey(selectedSyncPlayEndPoint),
-                      decoration: InputDecoration(border: OutlineInputBorder()),
-                      isExpanded: true,
-                      initialValue: selectedSyncPlayEndPoint,
-                      items: syncPlayEndPoints.map((String value) {
-                        return DropdownMenuItem<String>(
-                          value: value,
-                          child: Text(value, overflow: TextOverflow.ellipsis),
-                        );
-                      }).toList(),
-                      selectedItemBuilder: (context) {
-                        return syncPlayEndPoints.map((String value) {
-                          return Text(value, overflow: TextOverflow.ellipsis);
-                        }).toList();
-                      },
-                      onChanged: (String? newValue) {
-                        if (newValue != null) {
-                          if (newValue == defaultCustomSyncPlayEndPoint) {
-                            String serverText = '';
-                            KazumiDialog.show(
-                              builder: (context) {
-                                return AlertDialog(
-                                  title: const Text('自定义服务器'),
-                                  content: TextField(
-                                    decoration: const InputDecoration(
-                                      hintText: '请输入服务器地址',
-                                    ),
-                                    onChanged: (value) => serverText = value,
-                                  ),
-                                  actions: <Widget>[
-                                    TextButton(
-                                      child: const Text('取消'),
-                                      onPressed: () {
-                                        KazumiDialog.dismiss();
-                                      },
-                                    ),
-                                    TextButton(
-                                      child: const Text('确认'),
-                                      onPressed: () {
-                                        if (serverText.isNotEmpty &&
-                                            !syncPlayEndPoints.contains(
-                                              serverText,
-                                            )) {
-                                          KazumiDialog.dismiss();
-                                          setDialogState(() {
-                                            customSyncPlayEndPoint = serverText;
-                                            selectedSyncPlayEndPoint =
-                                                serverText;
-                                          });
-                                        } else {
-                                          KazumiDialog.showToast(
-                                            message: '服务器地址不能重复或为空',
-                                          );
-                                        }
-                                      },
-                                    ),
-                                  ],
-                                );
-                              },
-                            );
-                          } else {
-                            setDialogState(() {
-                              selectedSyncPlayEndPoint = newValue;
-                            });
-                          }
-                        }
-                      },
-                    ),
-                  ],
-                ),
-              ),
-              actions: <Widget>[
-                TextButton(
-                  child: const Text('取消'),
-                  onPressed: () {
-                    KazumiDialog.dismiss();
-                  },
-                ),
-                TextButton(
-                  child: const Text('确认'),
-                  onPressed: () {
-                    setting.put(
-                      SettingBoxKey.syncPlayEndPoint,
-                      selectedSyncPlayEndPoint,
-                    );
-                    KazumiDialog.dismiss();
-                  },
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-
   void showSyncPlayRoomCreateDialog() {
     final formKey = GlobalKey<FormState>();
     String room = '';
     String username = '';
+    final isSwitchingRoom = playerController.syncplay.syncplayRoom != '';
     KazumiDialog.show(
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('加入房间'),
+          title: Text(isSwitchingRoom ? '切换房间' : '加入房间'),
           content: Form(
             key: formKey,
             child: Column(
@@ -1294,13 +1170,14 @@ class _PlayerItemState extends State<PlayerItem>
                 const SizedBox(height: 16),
                 TextFormField(
                   decoration: const InputDecoration(labelText: '用户名'),
-                  onChanged: (value) => username = value,
+                  onChanged: (value) => username = value.trim(),
                   validator: (value) {
-                    if (value == null || value.isEmpty) {
+                    final username = value?.trim() ?? '';
+                    if (username.isEmpty) {
                       return '请输入用户名';
                     }
                     final regex = RegExp(r'^[a-zA-Z]{4,12}$');
-                    if (!regex.hasMatch(value)) {
+                    if (!regex.hasMatch(username)) {
                       return '用户名必须为4到12位英文字符';
                     }
                     return null;
@@ -1327,7 +1204,7 @@ class _PlayerItemState extends State<PlayerItem>
                   );
                 }
               },
-              child: const Text('确定'),
+              child: Text(isSwitchingRoom ? '切换' : '确定'),
             ),
           ],
         );
@@ -1619,8 +1496,6 @@ class _PlayerItemState extends State<PlayerItem>
                               showVideoInfo: showVideoInfo,
                               showSyncPlayRoomCreateDialog:
                                   showSyncPlayRoomCreateDialog,
-                              showSyncPlayEndPointSwitchDialog:
-                                  showSyncPlayEndPointSwitchDialog,
                               pauseForTimedShutdown:
                                   widget.pauseForTimedShutdown,
                               disableAnimations: widget.disableAnimations,
@@ -1644,8 +1519,6 @@ class _PlayerItemState extends State<PlayerItem>
                               showVideoInfo: showVideoInfo,
                               showSyncPlayRoomCreateDialog:
                                   showSyncPlayRoomCreateDialog,
-                              showSyncPlayEndPointSwitchDialog:
-                                  showSyncPlayEndPointSwitchDialog,
                               pauseForTimedShutdown:
                                   widget.pauseForTimedShutdown,
                               disableAnimations: widget.disableAnimations,

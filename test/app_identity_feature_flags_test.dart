@@ -11,9 +11,9 @@ void main() {
         AppIdentity.upstreamRepository, 'https://github.com/Predidit/Kazumi');
   });
 
-  test('unused upstream-backed features are hidden for Aslan builds', () {
+  test('upstream-backed features only expose SyncPlay for Aslan builds', () {
     expect(AppFeatureFlags.danmaku, isFalse);
-    expect(AppFeatureFlags.syncPlay, isFalse);
+    expect(AppFeatureFlags.syncPlay, isTrue);
     expect(AppFeatureFlags.imageSearch, isFalse);
     expect(AppFeatureFlags.webDavSync, isFalse);
     expect(AppFeatureFlags.pluginSources, isFalse);

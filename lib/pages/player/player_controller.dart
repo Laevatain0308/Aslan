@@ -340,10 +340,6 @@ class PlayerController {
     await syncplay.requestSync(doSeek: doSeek);
   }
 
-  Future<void> sendSyncPlayChatMessage(String message) async {
-    await syncplay.sendChatMessage(message);
-  }
-
   Future<void> exitSyncPlayRoom() async {
     await syncplay.exitRoom();
   }

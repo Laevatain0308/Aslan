@@ -41,7 +41,6 @@ class PlayerItemPanel extends StatefulWidget {
     required this.skipOP,
     required this.showVideoInfo,
     required this.showSyncPlayRoomCreateDialog,
-    required this.showSyncPlayEndPointSwitchDialog,
     required this.pauseForTimedShutdown,
     this.disableAnimations = false,
   });
@@ -62,7 +61,6 @@ class PlayerItemPanel extends StatefulWidget {
   final void Function() skipOP;
   final void Function() showVideoInfo;
   final void Function() showSyncPlayRoomCreateDialog;
-  final void Function() showSyncPlayEndPointSwitchDialog;
   final VoidCallback pauseForTimedShutdown;
   final bool disableAnimations;
 
@@ -1031,36 +1029,28 @@ class _PlayerItemPanelState extends State<PlayerItemPanel> {
                                 constraints: BoxConstraints(minWidth: 112),
                                 child: Align(
                                   alignment: Alignment.centerLeft,
-                                  child: Text("加入房间"),
+                                  child: Text(
+                                    playerController.syncplay.syncplayRoom == ''
+                                        ? "加入房间"
+                                        : "切换房间",
+                                  ),
                                 ),
                               ),
                             ),
-                            MenuItemButton(
-                              onPressed: () {
-                                widget.showSyncPlayEndPointSwitchDialog();
-                              },
-                              child: Container(
-                                height: 48,
-                                constraints: BoxConstraints(minWidth: 112),
-                                child: Align(
-                                  alignment: Alignment.centerLeft,
-                                  child: Text("切换服务器"),
+                            if (playerController.syncplay.syncplayRoom != '')
+                              MenuItemButton(
+                                onPressed: () async {
+                                  await playerController.exitSyncPlayRoom();
+                                },
+                                child: Container(
+                                  height: 48,
+                                  constraints: BoxConstraints(minWidth: 112),
+                                  child: Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: Text("断开连接"),
+                                  ),
                                 ),
                               ),
-                            ),
-                            MenuItemButton(
-                              onPressed: () async {
-                                await playerController.exitSyncPlayRoom();
-                              },
-                              child: Container(
-                                height: 48,
-                                constraints: BoxConstraints(minWidth: 112),
-                                child: Align(
-                                  alignment: Alignment.centerLeft,
-                                  child: Text("断开连接"),
-                                ),
-                              ),
-                            ),
                           ],
                           child: Container(
                             height: 48,

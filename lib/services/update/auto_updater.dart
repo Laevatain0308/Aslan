@@ -145,17 +145,9 @@ class AutoUpdater {
   /// 自动检查更新（仅在启用自动更新时）
   Future<void> autoCheckForUpdates() async {
     final autoUpdate =
-        setting.get(SettingBoxKey.autoUpdate, defaultValue: true);
-    if (!autoUpdate) return;
-
-    try {
-      final updateInfo = await checkForUpdates();
-      if (updateInfo != null) {
-        _showUpdateDialog(updateInfo, isAutoCheck: true);
-      }
-    } catch (e) {
-      // 自动检查失败时不显示错误
-      KazumiLogger().w('Update: auto check for updates failed', error: e);
+        setting.get(SettingBoxKey.autoUpdate, defaultValue: false) == true;
+    if (autoUpdate) {
+      await setting.put(SettingBoxKey.autoUpdate, false);
     }
   }
 

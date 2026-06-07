@@ -1,10 +1,7 @@
 // ignore_for_file: library_private_types_in_public_api
 
-import 'dart:async';
-
 import 'package:hive_ce/hive.dart';
 import 'package:kazumi/bean/dialog/dialog_helper.dart';
-import 'package:kazumi/pages/player/controller/player_models.dart';
 import 'package:kazumi/utils/constants.dart';
 import 'package:kazumi/services/logging/logger.dart';
 import 'package:kazumi/services/storage/storage.dart';
@@ -13,6 +10,11 @@ import 'package:kazumi/services/player/syncplay_endpoint.dart';
 import 'package:mobx/mobx.dart';
 
 part 'player_syncplay_controller.g.dart';
+
+typedef SyncplayClientFactory = SyncplayClient Function({
+  required String host,
+  required int port,
+});
 
 class PlayerSyncPlayController = _PlayerSyncPlayController
     with _$PlayerSyncPlayController;
@@ -30,7 +32,10 @@ abstract class _PlayerSyncPlayController with Store {
     required this.pause,
     required this.play,
     required this.seek,
-  });
+    SyncplayClientFactory? syncplayClientFactory,
+  }) : syncplayClientFactory = syncplayClientFactory ??
+            (({required host, required port}) =>
+                SyncplayClient(host: host, port: port));
 
   final Box setting;
   final int Function() bangumiId;
@@ -43,6 +48,7 @@ abstract class _PlayerSyncPlayController with Store {
   final Future<void> Function({bool enableSync}) pause;
   final Future<void> Function({bool enableSync}) play;
   final Future<void> Function(Duration duration, {bool enableSync}) seek;
+  final SyncplayClientFactory syncplayClientFactory;
 
   SyncplayClient? syncplayController;
   @observable
@@ -50,33 +56,12 @@ abstract class _PlayerSyncPlayController with Store {
   @observable
   int syncplayClientRtt = 0;
 
-  final StreamController<SyncPlayChatMessage> _chatStreamController =
-      StreamController<SyncPlayChatMessage>.broadcast();
-
-  Stream<SyncPlayChatMessage> get chatStream => _chatStreamController.stream;
-
-  void emitChatMessage({
-    required String username,
-    required String message,
-    required bool fromRemote,
-  }) {
-    if (_chatStreamController.isClosed) {
-      return;
-    }
-    _chatStreamController.add(SyncPlayChatMessage(
-      username: username,
-      message: message,
-      fromRemote: fromRemote,
-    ));
-  }
-
   Future<void> createRoom(
       String room,
       String username,
       Future<void> Function(int episode, {int currentRoad, int offset})
           changeEpisode,
       {bool enableTLS = true}) async {
-    await syncplayController?.disconnect();
     final String syncPlayEndPoint = setting.get(SettingBoxKey.syncPlayEndPoint,
         defaultValue: defaultSyncPlayEndPoint);
     String syncPlayEndPointHost = '';
@@ -96,143 +81,183 @@ abstract class _PlayerSyncPlayController with Store {
       KazumiLogger().e('SyncPlay: invalid server address $syncPlayEndPoint');
       return;
     }
-    syncplayController =
-        SyncplayClient(host: syncPlayEndPointHost, port: syncPlayEndPointPort);
+    final nextController = syncplayClientFactory(
+      host: syncPlayEndPointHost,
+      port: syncPlayEndPointPort,
+    );
     try {
-      await syncplayController!.connect(enableTLS: enableTLS);
+      await nextController.connect(enableTLS: enableTLS);
       KazumiLogger().i(
           'SyncPlay: connected to $syncPlayEndPointHost:$syncPlayEndPointPort');
-      syncplayController!.onGeneralMessage.listen(
-        (message) {
-          // print('SyncPlay: general message: ${message.toString()}');
-        },
-        onError: (error) {
-          KazumiLogger().e('SyncPlay: error ${error.message}', error: error);
-          if (error is SyncplayConnectionException) {
-            exitRoom();
-            KazumiDialog.showToast(
-              message: 'SyncPlay: 同步中断 ${error.message}',
-              duration: const Duration(seconds: 5),
-              showActionButton: true,
-              actionLabel: '重新连接',
-              onActionPressed: () => createRoom(room, username, changeEpisode),
-            );
-          }
-        },
+      _attachSyncplayListeners(
+        controller: nextController,
+        room: room,
+        username: username,
+        changeEpisode: changeEpisode,
       );
-      syncplayController!.onRoomMessage.listen(
-        (message) {
-          if (message['type'] == 'init') {
-            if (message['username'] == '') {
-              KazumiDialog.showToast(
-                  message: 'SyncPlay: 您是当前房间中的唯一用户',
-                  duration: const Duration(seconds: 5));
-              setPlayingBangumi();
-            } else {
-              KazumiDialog.showToast(
-                  message:
-                      'SyncPlay: 您不是当前房间中的唯一用户, 当前以用户 ${message['username']} 进度为准');
-            }
-          }
-          if (message['type'] == 'left') {
-            KazumiDialog.showToast(
-                message: 'SyncPlay: ${message['username']} 离开了房间',
-                duration: const Duration(seconds: 5));
-          }
-          if (message['type'] == 'joined') {
-            KazumiDialog.showToast(
-                message: 'SyncPlay: ${message['username']} 加入了房间',
-                duration: const Duration(seconds: 5));
-          }
-        },
+      _setCurrentPositionFor(nextController);
+      await nextController.joinRoom(
+        room,
+        username,
       );
-      syncplayController!.onFileChangedMessage.listen(
-        (message) {
-          KazumiLogger().i(
-              'SyncPlay: file changed by ${message['setBy']}: ${message['name']}');
-          RegExp regExp = RegExp(r'(\d+)\[(\d+)\]');
-          Match? match = regExp.firstMatch(message['name']);
-          if (match != null) {
-            int bangumiID = int.tryParse(match.group(1) ?? '0') ?? 0;
-            int episode = int.tryParse(match.group(2) ?? '0') ?? 0;
-            if (bangumiID != 0 && episode != 0 && episode != currentEpisode()) {
-              KazumiDialog.showToast(
-                  message:
-                      'SyncPlay: ${message['setBy'] ?? 'unknown'} 切换到第 $episode 话',
-                  duration: const Duration(seconds: 3));
-              changeEpisode(episode, currentRoad: currentRoad());
-            }
-          }
-        },
-      );
-      syncplayController!.onChatMessage.listen(
-        (message) {
-          final String sender = (message['username'] ?? '').toString();
-          final String text = (message['message'] ?? '').toString();
-          final bool fromRemote = message['username'] != username;
-
-          emitChatMessage(
-            username: sender,
-            message: text,
-            fromRemote: fromRemote,
-          );
-        },
-        onError: (error) {
-          KazumiLogger().e('SyncPlay: error ${error.message}', error: error);
-        },
-      );
-      syncplayController!.onPositionChangedMessage.listen(
-        (message) {
-          syncplayClientRtt = (message['clientRtt'].toDouble() * 1000).toInt();
-          KazumiLogger().i(
-              'SyncPlay: position changed by ${message['setBy']}: [${DateTime.now().millisecondsSinceEpoch / 1000.0}] calculatedPosition ${message['calculatedPositon']} position: ${message['position']} doSeek: ${message['doSeek']} paused: ${message['paused']} clientRtt: ${message['clientRtt']} serverRtt: ${message['serverRtt']} fd: ${message['fd']}');
-          if (message['paused'] != !playing()) {
-            if (message['paused']) {
-              if (message['position'] != 0) {
-                KazumiDialog.showToast(
-                    message: 'SyncPlay: ${message['setBy'] ?? 'unknown'} 暂停了播放',
-                    duration: const Duration(seconds: 3));
-                pause(enableSync: false);
-              }
-            } else {
-              if (message['position'] != 0) {
-                KazumiDialog.showToast(
-                    message: 'SyncPlay: ${message['setBy'] ?? 'unknown'} 开始了播放',
-                    duration: const Duration(seconds: 3));
-                play(enableSync: false);
-              }
-            }
-          }
-          if ((((playerPosition().inMilliseconds -
-                              (message['calculatedPositon'].toDouble() * 1000)
-                                  .toInt())
-                          .abs() >
-                      1000) ||
-                  message['doSeek']) &&
-              duration().inMilliseconds > 0) {
-            seek(
-                Duration(
-                    milliseconds:
-                        (message['calculatedPositon'].toDouble() * 1000)
-                            .toInt()),
-                enableSync: false);
-          }
-        },
-      );
-      await syncplayController!.joinRoom(room, username);
+      final oldController = syncplayController;
+      syncplayController = nextController;
       syncplayRoom = room;
+      syncplayClientRtt = 0;
+      await oldController?.disconnect();
     } catch (e) {
+      await nextController.disconnect();
       KazumiLogger().e('SyncPlay: error', error: e);
+      if (e is SyncplayException) {
+        KazumiDialog.showToast(
+          message: e.message,
+          duration: const Duration(seconds: 5),
+        );
+      }
     }
+  }
+
+  void _attachSyncplayListeners({
+    required SyncplayClient controller,
+    required String room,
+    required String username,
+    required Future<void> Function(int episode, {int currentRoad, int offset})
+        changeEpisode,
+  }) {
+    controller.onGeneralMessage.listen(
+      (message) {
+        // print('SyncPlay: general message: ${message.toString()}');
+      },
+      onError: (error) {
+        if (error is SyncplayConnectionException) {
+          if (syncplayController != controller) {
+            return;
+          }
+          KazumiLogger().e('SyncPlay: error ${error.message}', error: error);
+          exitRoom();
+          KazumiDialog.showToast(
+            message: 'SyncPlay: 同步中断 ${error.message}',
+            duration: const Duration(seconds: 5),
+            showActionButton: true,
+            actionLabel: '重新连接',
+            onActionPressed: () => createRoom(room, username, changeEpisode),
+          );
+        }
+      },
+    );
+    controller.onRoomMessage.listen(
+      (message) {
+        if (message['type'] == 'init') {
+          if (message['username'] == '') {
+            KazumiDialog.showToast(
+                message: 'SyncPlay: 您是当前房间中的唯一用户',
+                duration: const Duration(seconds: 5));
+            _setPlayingBangumiFor(controller);
+          } else {
+            KazumiDialog.showToast(
+                message:
+                    'SyncPlay: 您不是当前房间中的唯一用户, 当前以用户 ${message['username']} 进度为准');
+          }
+        }
+        if (message['type'] == 'left') {
+          KazumiDialog.showToast(
+              message: 'SyncPlay: ${message['username']} 离开了房间',
+              duration: const Duration(seconds: 5));
+        }
+        if (message['type'] == 'joined') {
+          KazumiDialog.showToast(
+              message: 'SyncPlay: ${message['username']} 加入了房间',
+              duration: const Duration(seconds: 5));
+        }
+      },
+    );
+    controller.onFileChangedMessage.listen(
+      (message) {
+        KazumiLogger().i(
+            'SyncPlay: file changed by ${message['setBy']}: ${message['name']}');
+        RegExp regExp = RegExp(r'(\d+)\[(\d+)\]');
+        Match? match = regExp.firstMatch(message['name']);
+        if (match != null) {
+          int bangumiID = int.tryParse(match.group(1) ?? '0') ?? 0;
+          int episode = int.tryParse(match.group(2) ?? '0') ?? 0;
+          if (bangumiID != 0 && episode != 0 && episode != currentEpisode()) {
+            KazumiDialog.showToast(
+                message:
+                    'SyncPlay: ${message['setBy'] ?? 'unknown'} 切换到第 $episode 话',
+                duration: const Duration(seconds: 3));
+            changeEpisode(episode, currentRoad: currentRoad());
+          }
+        }
+      },
+    );
+    controller.onLatencyChangedMessage.listen(
+      (message) {
+        if (syncplayController != controller) {
+          return;
+        }
+        syncplayClientRtt = (message['clientRtt'].toDouble() * 1000).toInt();
+      },
+    );
+    controller.onPositionChangedMessage.listen(
+      (message) {
+        if (syncplayController != controller) {
+          return;
+        }
+        KazumiLogger().i(
+            'SyncPlay: position changed by ${message['setBy']}: [${DateTime.now().millisecondsSinceEpoch / 1000.0}] calculatedPosition ${message['calculatedPositon']} position: ${message['position']} doSeek: ${message['doSeek']} paused: ${message['paused']} clientRtt: ${message['clientRtt']} serverRtt: ${message['serverRtt']} fd: ${message['fd']}');
+        if (message['paused'] != !playing()) {
+          if (message['paused']) {
+            if (message['position'] != 0) {
+              KazumiDialog.showToast(
+                  message: 'SyncPlay: ${message['setBy'] ?? 'unknown'} 暂停了播放',
+                  duration: const Duration(seconds: 3));
+              pause(enableSync: false);
+            }
+          } else {
+            if (message['position'] != 0) {
+              KazumiDialog.showToast(
+                  message: 'SyncPlay: ${message['setBy'] ?? 'unknown'} 开始了播放',
+                  duration: const Duration(seconds: 3));
+              play(enableSync: false);
+            }
+          }
+        }
+        if ((((playerPosition().inMilliseconds -
+                            (message['calculatedPositon'].toDouble() * 1000)
+                                .toInt())
+                        .abs() >
+                    1000) ||
+                message['doSeek']) &&
+            duration().inMilliseconds > 0) {
+          seek(
+              Duration(
+                  milliseconds:
+                      (message['calculatedPositon'].toDouble() * 1000).toInt()),
+              enableSync: false);
+        }
+      },
+    );
   }
 
   void setCurrentPosition({bool? forceSyncPlaying, double? forceSyncPosition}) {
     if (syncplayController == null) {
       return;
     }
+    _setCurrentPositionFor(
+      syncplayController!,
+      forceSyncPlaying: forceSyncPlaying,
+      forceSyncPosition: forceSyncPosition,
+    );
+  }
+
+  void _setCurrentPositionFor(
+    SyncplayClient controller, {
+    bool? forceSyncPlaying,
+    double? forceSyncPosition,
+  }) {
     forceSyncPlaying ??= playing();
-    syncplayController!.setPaused(!forceSyncPlaying);
-    syncplayController!.setPosition((forceSyncPosition ??
+    controller.setPaused(!forceSyncPlaying);
+    controller.setPosition((forceSyncPosition ??
         (((currentPosition().inMilliseconds - playerPosition().inMilliseconds)
                     .abs() >
                 2000)
@@ -242,23 +267,38 @@ abstract class _PlayerSyncPlayController with Store {
 
   Future<void> setPlayingBangumi(
       {bool? forceSyncPlaying, double? forceSyncPosition}) async {
-    await syncplayController!.setSyncPlayPlaying(
+    final controller = syncplayController;
+    if (controller == null) {
+      return;
+    }
+    await _setPlayingBangumiFor(
+      controller,
+      forceSyncPlaying: forceSyncPlaying,
+      forceSyncPosition: forceSyncPosition,
+    );
+  }
+
+  Future<void> _setPlayingBangumiFor(
+    SyncplayClient controller, {
+    bool? forceSyncPlaying,
+    double? forceSyncPosition,
+  }) async {
+    await controller.setSyncPlayPlaying(
         "${bangumiId()}[${currentEpisode()}]", 10800, 220514438);
-    setCurrentPosition(
-        forceSyncPlaying: forceSyncPlaying,
-        forceSyncPosition: forceSyncPosition);
-    await requestSync(doSeek: null);
+    _setCurrentPositionFor(
+      controller,
+      forceSyncPlaying: forceSyncPlaying,
+      forceSyncPosition: forceSyncPosition,
+    );
+    await controller.sendSyncPlaySyncRequest(doSeek: null);
   }
 
   Future<void> requestSync({bool? doSeek}) async {
-    await syncplayController!.sendSyncPlaySyncRequest(doSeek: doSeek);
-  }
-
-  Future<void> sendChatMessage(String message) async {
-    if (syncplayController == null) {
+    final controller = syncplayController;
+    if (controller == null) {
       return;
     }
-    await syncplayController!.sendChatMessage(message);
+    await controller.sendSyncPlaySyncRequest(doSeek: doSeek);
   }
 
   @action
@@ -275,6 +315,5 @@ abstract class _PlayerSyncPlayController with Store {
 
   Future<void> dispose() async {
     await exitRoom();
-    await _chatStreamController.close();
   }
 }

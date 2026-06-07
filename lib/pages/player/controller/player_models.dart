@@ -31,20 +31,5 @@ class PlaybackInitParams {
 }
 
 enum DanmakuDestination {
-  chatRoom,
   remoteDanmaku,
-}
-
-class SyncPlayChatMessage {
-  final String username;
-  final String message;
-  final bool fromRemote;
-  final DateTime time;
-
-  SyncPlayChatMessage({
-    required this.username,
-    required this.message,
-    this.fromRemote = true,
-    DateTime? time,
-  }) : time = time ?? DateTime.now();
 }

@@ -126,6 +126,42 @@ void main() {
   });
 
   group('ServerSettingsPage sync actions', () {
+    testWidgets('shows SyncPlay server input with service field styling',
+        (tester) async {
+      final controller = TextEditingController(text: 'sync.example:8999');
+      var saved = false;
+      var reset = false;
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SyncPlayServerSettingsSection(
+              controller: controller,
+              onSave: () {
+                saved = true;
+              },
+              onReset: () {
+                reset = true;
+              },
+            ),
+          ),
+        ),
+      );
+
+      final field = _textFieldByLabel(tester, 'SyncPlay 服务器');
+      expect(field.controller, controller);
+      expect(field.keyboardType, TextInputType.url);
+      expect(field.decoration?.hintText, '默认 syncplay.pl:8996，格式 host:port');
+      expect(field.decoration?.border, isA<OutlineInputBorder>());
+
+      await tester.tap(find.text('保存'));
+      await tester.tap(find.text('恢复默认'));
+
+      expect(saved, isTrue);
+      expect(reset, isTrue);
+    });
+
     testWidgets('disables immediate sync when logged out', (tester) async {
       await tester.pumpWidget(
         _actionButtons(

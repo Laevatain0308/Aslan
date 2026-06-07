@@ -44,7 +44,7 @@ class HelloMessage extends SyncplayMessage {
           'version': version,
           'features': {
             'sharedPlaylists': true,
-            'chat': true,
+            'chat': false,
             'featureList': true,
             'readiness': true,
             'managedRooms': false,
@@ -163,17 +163,6 @@ class SetMessage extends SyncplayMessage {
   }
 }
 
-class ChatMessage extends SyncplayMessage {
-  final String message;
-
-  ChatMessage({
-    required this.message,
-  });
-
-  @override
-  Map<String, dynamic> toJson() => {'Chat': message};
-}
-
 class TLSMessage extends SyncplayMessage {
   final String message;
 
@@ -203,12 +192,14 @@ class SyncplayClient {
       StreamController.broadcast();
   StreamController<Map<String, dynamic>>? _roomMessageController =
       StreamController.broadcast();
-  StreamController<Map<String, dynamic>>? _chatMessageController =
-      StreamController.broadcast();
   StreamController<Map<String, dynamic>>? _flieChangedMessageController =
       StreamController.broadcast();
   StreamController<Map<String, dynamic>>? _positionChangedMessageController =
       StreamController.broadcast();
+  StreamController<Map<String, dynamic>>? _latencyChangedMessageController =
+      StreamController.broadcast();
+  Completer<void>? _joinRoomCompleter;
+  String? _pendingJoinRoom;
   double? _lastLatencyCalculation;
 
   // Network status
@@ -241,11 +232,6 @@ class SyncplayClient {
     return _roomMessageController!.stream;
   }
 
-  Stream<Map<String, dynamic>> get onChatMessage {
-    _chatMessageController ??= StreamController.broadcast();
-    return _chatMessageController!.stream;
-  }
-
   Stream<Map<String, dynamic>> get onFileChangedMessage {
     _flieChangedMessageController ??= StreamController.broadcast();
     return _flieChangedMessageController!.stream;
@@ -254,6 +240,11 @@ class SyncplayClient {
   Stream<Map<String, dynamic>> get onPositionChangedMessage {
     _positionChangedMessageController ??= StreamController.broadcast();
     return _positionChangedMessageController!.stream;
+  }
+
+  Stream<Map<String, dynamic>> get onLatencyChangedMessage {
+    _latencyChangedMessageController ??= StreamController.broadcast();
+    return _latencyChangedMessageController!.stream;
   }
 
   SyncplayClient({required String host, required int port})
@@ -270,6 +261,9 @@ class SyncplayClient {
     if (_positionChangedMessageController?.isClosed ?? true) {
       _positionChangedMessageController = StreamController.broadcast();
     }
+    if (_latencyChangedMessageController?.isClosed ?? true) {
+      _latencyChangedMessageController = StreamController.broadcast();
+    }
     try {
       await _socket?.close();
       _socket = null;
@@ -281,10 +275,12 @@ class SyncplayClient {
         requestTLS();
       }
     } on SocketException catch (e) {
-      _generalMessageController?.addError(
-        SyncplayConnectionException(
-            'SyncPlay: connection failed: ${e.message}'),
+      final exception = SyncplayConnectionException(
+        'SyncPlay: connection failed: ${e.message}',
       );
+      _generalMessageController?.addError(exception);
+      _socket = null;
+      throw exception;
     }
   }
 
@@ -293,26 +289,45 @@ class SyncplayClient {
     await _sendMessage(TLSMessage(message: 'send'));
   }
 
-  Future<void> joinRoom(String room, String username) async {
+  Future<void> joinRoom(
+    String room,
+    String username, {
+    Duration joinTimeout = const Duration(seconds: 8),
+  }) async {
+    if (_socket == null) {
+      final exception = SyncplayConnectionException(
+        'SyncPlay: not connected to server',
+      );
+      _generalMessageController?.addError(exception);
+      throw exception;
+    }
+    if (_joinRoomCompleter != null && !_joinRoomCompleter!.isCompleted) {
+      final exception = SyncplayConnectionException(
+        'SyncPlay: room join already in progress',
+      );
+      _generalMessageController?.addError(exception);
+      throw exception;
+    }
     print('SyncPlay: joining room: $room as $username');
+    _pendingJoinRoom = room;
+    _joinRoomCompleter = Completer<void>();
     await _sendMessage(HelloMessage(
       username: username,
       version: '1.7.0',
       room: room,
     ));
-  }
-
-  Future<void> sendChatMessage(String message) async {
-    if (_currentRoom == null || _username == null) {
-      _generalMessageController?.addError(
-        SyncplayProtocolException(
-            'SyncPlay: send chat message failed, not in a room'),
+    try {
+      await _joinRoomCompleter!.future.timeout(joinTimeout);
+    } on TimeoutException {
+      final exception = SyncplayConnectionException(
+        'SyncPlay: join room timed out',
       );
-      return;
+      _generalMessageController?.addError(exception);
+      throw exception;
+    } finally {
+      _joinRoomCompleter = null;
+      _pendingJoinRoom = null;
     }
-    await _sendMessage(ChatMessage(
-      message: message,
-    ));
   }
 
   Future<void> setSyncPlayPlaying(
@@ -347,12 +362,12 @@ class SyncplayClient {
     _generalMessageController = null;
     await _roomMessageController?.close();
     _roomMessageController = null;
-    await _chatMessageController?.close();
-    _chatMessageController = null;
     await _flieChangedMessageController?.close();
     _flieChangedMessageController = null;
     await _positionChangedMessageController?.close();
     _positionChangedMessageController = null;
+    await _latencyChangedMessageController?.close();
+    _latencyChangedMessageController = null;
     try {
       await _socket?.close();
     } catch (_) {}
@@ -360,6 +375,14 @@ class SyncplayClient {
     _currentRoom = null;
     _username = null;
     _currentFileName = null;
+    _pendingJoinRoom = null;
+    if (_joinRoomCompleter != null && !_joinRoomCompleter!.isCompleted) {
+      _joinRoomCompleter!.completeError(
+        SyncplayConnectionException(
+            'SyncPlay: disconnected while joining room'),
+      );
+    }
+    _joinRoomCompleter = null;
     _currentPositon = 0.0;
     _isPaused = true;
     _isTLS = false;
@@ -462,6 +485,11 @@ class SyncplayClient {
         print(
             'SyncPlay: joined room: $_currentRoom as $_username, version: ${json['Hello']['version']}');
         _setReady();
+        if (_joinRoomCompleter != null &&
+            !_joinRoomCompleter!.isCompleted &&
+            _currentRoom == _pendingJoinRoom) {
+          _joinRoomCompleter!.complete();
+        }
       }
       _generalMessageController?.add({
         'username': json['Hello']['username'],
@@ -478,6 +506,12 @@ class SyncplayClient {
         }
         _updateClientRttAndFd(
             json['State']["ping"]["clientLatencyCalculation"], _serverRtt);
+        _latencyChangedMessageController?.add({
+          'clientRtt': _clientRtt,
+          'serverRtt': _serverRtt,
+          'avrRtt': _avrRtt,
+          'fd': _fd,
+        });
       }
       if (json['State'].containsKey('ignoringOnTheFly')) {
         var ignoringOnTheFly = json['State']['ignoringOnTheFly'];
@@ -490,21 +524,23 @@ class SyncplayClient {
           }
         }
       }
-      if (_clientIgnoringOnTheFly == 0) {
-        _currentPositon = (json['State']['playstate']['paused'] ?? true)
-            ? (json['State']['playstate']['position']?.toDouble() ?? 0.0)
-            : ((json['State']['playstate']['position']?.toDouble() ?? 0.0) +
-                _fd);
-        _isPaused = json['State']['playstate']['paused'] ?? true;
+      final playstate = json['State']['playstate'];
+      final setBy = playstate['setBy']?.toString() ?? '';
+      final hasRemotePlaybackChange =
+          setBy.isNotEmpty && setBy != 'Nobody' && setBy != _username;
+      if (_clientIgnoringOnTheFly == 0 && hasRemotePlaybackChange) {
+        _currentPositon = (playstate['paused'] ?? true)
+            ? (playstate['position']?.toDouble() ?? 0.0)
+            : ((playstate['position']?.toDouble() ?? 0.0) + _fd);
+        _isPaused = playstate['paused'] ?? true;
         _positionChangedMessageController?.add({
-          'calculatedPositon': (json['State']['playstate']['paused'] ?? true)
-              ? (json['State']['playstate']['position']?.toDouble() ?? 0.0)
-              : ((json['State']['playstate']['position']?.toDouble() ?? 0.0) +
-                  _fd),
-          'position': json['State']['playstate']['position']?.toDouble() ?? 0.0,
-          'paused': json['State']['playstate']['paused'] ?? true,
-          'doSeek': json['State']['playstate']['doSeek'] ?? false,
-          'setBy': json['State']['playstate']['setBy'] ?? '',
+          'calculatedPositon': (playstate['paused'] ?? true)
+              ? (playstate['position']?.toDouble() ?? 0.0)
+              : ((playstate['position']?.toDouble() ?? 0.0) + _fd),
+          'position': playstate['position']?.toDouble() ?? 0.0,
+          'paused': playstate['paused'] ?? true,
+          'doSeek': playstate['doSeek'] ?? false,
+          'setBy': setBy,
           'clientRtt': _clientRtt,
           'serverRtt': _serverRtt,
           'avrRtt': _avrRtt,
@@ -553,13 +589,6 @@ class SyncplayClient {
       return;
     }
     if (json.containsKey('Chat')) {
-      if (json['Chat'].containsKey('message') &&
-          json['Chat'].containsKey('username')) {
-        _chatMessageController?.add({
-          'message': json['Chat']['message'],
-          'username': json['Chat']['username'],
-        });
-      }
       return;
     }
     _generalMessageController?.addError(

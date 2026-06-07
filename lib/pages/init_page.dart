@@ -249,10 +249,11 @@ class _InitPageState extends State<InitPage> {
   }
 
   Future<void> _update() async {
-    bool autoUpdate =
-        await setting.get(SettingBoxKey.autoUpdate, defaultValue: true);
+    final autoUpdate =
+        await setting.get(SettingBoxKey.autoUpdate, defaultValue: false) ==
+            true;
     if (autoUpdate) {
-      Modular.get<MyController>().checkUpdate(type: 'auto');
+      await setting.put(SettingBoxKey.autoUpdate, false);
     }
   }
 

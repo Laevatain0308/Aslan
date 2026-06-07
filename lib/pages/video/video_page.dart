@@ -58,8 +58,6 @@ class _VideoPageState extends State<VideoPage>
 
   late final bool disableAnimations;
 
-  StreamSubscription<SyncPlayChatMessage>? _syncChatSubscription;
-
   static const Duration _offlinePlayerInitDelay = Duration(milliseconds: 400);
   static const Duration _sideTabAnimationDuration = Duration(milliseconds: 120);
 
@@ -125,8 +123,6 @@ class _VideoPageState extends State<VideoPage>
     } else {
       _initOnlineMode(playerController);
     }
-
-    _syncChatSubscription = null;
   }
 
   void _initOfflineMode(PlayerController playerController) {
@@ -210,9 +206,6 @@ class _VideoPageState extends State<VideoPage>
     } catch (_) {}
     try {
       animation.dispose();
-    } catch (_) {}
-    try {
-      _syncChatSubscription?.cancel();
     } catch (_) {}
     try {
       _logSubscription?.cancel();

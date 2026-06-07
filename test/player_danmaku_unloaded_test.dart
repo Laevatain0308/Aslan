@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kazumi/services/player/syncplay_client.dart';
 import 'package:kazumi/utils/constants.dart';
 
 void main() {
@@ -72,6 +73,38 @@ void main() {
         expect(source, isNot(contains('Toggle Danmaku')));
         expect(source, isNot(contains('弹幕开关')));
       }
+    });
+
+    test('syncplay runtime does not expose chat while danmaku is disabled', () {
+      final files = <String>[
+        'lib/services/player/syncplay_client.dart',
+        'lib/pages/player/controller/player_syncplay_controller.dart',
+        'lib/pages/player/player_controller.dart',
+        'lib/pages/video/video_page.dart',
+        'lib/pages/player/controller/player_models.dart',
+      ];
+
+      for (final file in files) {
+        final source = File(file).readAsStringSync();
+
+        expect(source, isNot(contains('ChatMessage')));
+        expect(source, isNot(contains('sendChatMessage')));
+        expect(source, isNot(contains('onChatMessage')));
+        expect(source, isNot(contains('chatStream')));
+        expect(source, isNot(contains('SyncPlayChatMessage')));
+        expect(source, isNot(contains('_syncChatSubscription')));
+        expect(source, isNot(contains('chatRoom')));
+      }
+    });
+
+    test('syncplay handshake does not advertise chat support', () {
+      final json = HelloMessage(
+        username: 'aslan',
+        version: '1.7.0',
+        room: '123456',
+      ).toJson();
+
+      expect(json['Hello']['features']['chat'], isFalse);
     });
   });
 }
